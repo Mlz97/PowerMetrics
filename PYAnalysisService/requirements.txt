@@ -1,0 +1,5 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+mediapipe==0.10.14
+opencv-python
+pydantic==2.6.1
