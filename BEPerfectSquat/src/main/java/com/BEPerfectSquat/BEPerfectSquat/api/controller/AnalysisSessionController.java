@@ -13,6 +13,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
 
 
 
@@ -21,9 +24,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 @RequestMapping("/session")
 public class AnalysisSessionController {
     private final AnalysisSessionService analysisSessionService;
+    private final VideoService videoService;
 
-    public AnalysisSessionController(AnalysisSessionService analysisSessionService){
+    public AnalysisSessionController(AnalysisSessionService analysisSessionService, VideoService videoService){
         this.analysisSessionService=analysisSessionService;
+        this.videoService = videoService;
     }
 
     @PostMapping
@@ -38,6 +43,17 @@ public class AnalysisSessionController {
         AnalysisSession session  = analysisSessionService.getSessionById(id);
         AnalysisSessionResponse response = AnalysisSessionResponse.from(session);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/video")
+    public ResponseEntity<AnalysisSessionResponse> uploadVideo(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "weightKg", required = false) Double weightKg) {
+        
+        videoService.saveVideo(id, file, weightKg);
+        AnalysisSession session = analysisSessionService.getSessionById(id);
+        return ResponseEntity.ok(AnalysisSessionResponse.from(session));
     }
 
 

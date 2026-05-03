@@ -89,11 +89,33 @@ class SquatAnalyzer:
                 try:
                     landmarks = results.pose_landmarks.landmark
                     
-                    # lado izquierdo por defecto
-                    hip = [landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].y]
-                    knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y]
-                    ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
-                    shoulder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+                    # Deteccion dinamica de perfil (izquierdo vs derecho) basandose en la visibilidad
+                    l_hip_vis = landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].visibility
+                    l_knee_vis = landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].visibility
+                    l_ankle_vis = landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].visibility
+                    
+                    r_hip_vis = landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value].visibility
+                    r_knee_vis = landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].visibility
+                    r_ankle_vis = landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].visibility
+                    
+                    left_visibility = (l_hip_vis + l_knee_vis + l_ankle_vis) / 3.0
+                    right_visibility = (r_hip_vis + r_knee_vis + r_ankle_vis) / 3.0
+                    
+                    if max(left_visibility, right_visibility) < 0.3:
+                        raise ValueError("Visibilidad general de las piernas demasiado baja")
+                    
+                    if right_visibility > left_visibility:
+                        hip = [landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value].x, landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value].y]
+                        knee = [landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].x, landmarks[self.mp_pose.PoseLandmark.RIGHT_KNEE.value].y]
+                        ankle = [landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].x, landmarks[self.mp_pose.PoseLandmark.RIGHT_ANKLE.value].y]
+                        shoulder = [landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x, landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
+                        side_text = "SIDE: RIGHT"
+                    else:
+                        hip = [landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].y]
+                        knee = [landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE.value].y]
+                        ankle = [landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE.value].y]
+                        shoulder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+                        side_text = "SIDE: LEFT"
                     
                     # Calculo angulo
                     knee_angle = self.calculate_angle(hip, knee, ankle)
@@ -161,9 +183,12 @@ class SquatAnalyzer:
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2, cv2.LINE_AA)
                     cv2.putText(image, f"REPS: {self.valid_reps}/{self.rep_count}", (15, 80), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255) if self.state == "STANDING" else (0, 255, 0), 2, cv2.LINE_AA)
+                    cv2.putText(image, side_text, (15, 120), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+
 
                 except Exception as e:
-                    pass
+                    print(f"Frame sin landmarks detectados: {e}")
                 
                 # Render detections
                 self.mp_drawing.draw_landmarks(image, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS)
@@ -173,10 +198,18 @@ class SquatAnalyzer:
         cap.release()
         out.release()
         
-        avg_velocity = (total_velocity / self.valid_reps) if self.valid_reps > 0 else 0.0
+        avg_velocity = (total_velocity / self.rep_count) if self.rep_count > 0 else 0.0
         
         # Epley 1RM = Weight * (1 + 0.0333 * Reps)
-        est_rm = self.weight_kg * (1 + 0.0333 * self.valid_reps) if self.weight_kg else 0.0
+        est_rm = self.weight_kg * (1 + 0.0333 * self.valid_reps) if self.weight_kg else None
+        
+        # Fatigue index: caída de velocidad entre primera y última rep
+        if len(self.reps_details) >= 2:
+            first_velocity = self.reps_details[0].concentricVelocity
+            last_velocity = self.reps_details[-1].concentricVelocity
+            fatigue = 1 - (last_velocity / first_velocity) if first_velocity and first_velocity > 0 else 0.0
+        else:
+            fatigue = 0.0
         
         return PythonAnalysisResponse(
             sessionId=self.session_id,
@@ -186,5 +219,5 @@ class SquatAnalyzer:
             reps=self.reps_details,
             averageConcentricVelocity=avg_velocity,
             estimatedRM=est_rm,
-            fatigueIndex=0.0
+            fatigueIndex=fatigue
         )
