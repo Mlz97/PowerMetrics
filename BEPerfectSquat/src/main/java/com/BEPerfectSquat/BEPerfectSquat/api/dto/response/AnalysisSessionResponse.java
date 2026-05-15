@@ -12,13 +12,24 @@ public class AnalysisSessionResponse {
     private LocalDateTime createdAt;
     private Integer totalReps;
     private Integer validReps;
+    private Double avgConcentricVelocity;
+    private Double estimatedRM;
+    private Double fatigueIndex;
+    private Integer weightKg;
 
-    public AnalysisSessionResponse(Long id, AnalysisSessionState state, LocalDateTime createdAt, Integer totalReps, Integer validReps){
+    public AnalysisSessionResponse(Long id, AnalysisSessionState state, LocalDateTime createdAt,
+                                   Integer totalReps, Integer validReps,
+                                   Double avgConcentricVelocity, Double estimatedRM,
+                                   Double fatigueIndex, Integer weightKg){
         this.id=id;
         this.state=state;
         this.createdAt=createdAt;
         this.totalReps = totalReps;
         this.validReps = validReps;
+        this.avgConcentricVelocity = avgConcentricVelocity;
+        this.estimatedRM = estimatedRM;
+        this.fatigueIndex = fatigueIndex;
+        this.weightKg = weightKg;
     }
 
     public static AnalysisSessionResponse from(AnalysisSession analysisSession){
@@ -27,7 +38,11 @@ public class AnalysisSessionResponse {
             analysisSession.getState(),
             analysisSession.getCreatedAt(),
             analysisSession.getTotalReps(),
-            analysisSession.getValidReps()
+            analysisSession.getValidReps(),
+            analysisSession.getAvgConcentricVelocity(),
+            analysisSession.getEstimatedRM(),
+            analysisSession.getFatigueIndex(),
+            analysisSession.getWeightKg()
         );
     }
 
@@ -49,5 +64,21 @@ public class AnalysisSessionResponse {
 
     public Integer getValidReps() {
         return validReps;
+    }
+
+    public Double getAvgConcentricVelocity() {
+        return avgConcentricVelocity;
+    }
+
+    public Double getEstimatedRM() {
+        return estimatedRM;
+    }
+
+    public Double getFatigueIndex() {
+        return fatigueIndex;
+    }
+
+    public Integer getWeightKg() {
+        return weightKg;
     }
 }

@@ -19,7 +19,7 @@ public class AnalysisSession {
     @Enumerated(EnumType.STRING)
     private AnalysisSessionState state = AnalysisSessionState.WAITING;
 
-    @OneToOne(mappedBy = "session")
+    @OneToOne(mappedBy = "session", cascade = CascadeType.ALL)
     private Video video;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)

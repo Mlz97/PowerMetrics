@@ -8,6 +8,8 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -59,6 +61,20 @@ public class StorageService {
             return destinationFile.toString();
         } catch (IOException e) {
             throw new RuntimeException("Fallo al guardar el archivo.", e);
+        }
+    }
+
+    public Resource loadAsResource(String filePath) {
+        try {
+            Path file = Paths.get(filePath);
+            Resource resource = new UrlResource(file.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                return resource;
+            } else {
+                throw new RuntimeException("No se pudo leer el archivo: " + filePath);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("No se pudo cargar el archivo: " + filePath, e);
         }
     }
 }

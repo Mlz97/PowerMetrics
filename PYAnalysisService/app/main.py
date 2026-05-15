@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="PerfectSquat Python Analysis Service")
 
 @app.post("/analyze", response_model=PythonAnalysisResponse)
-async def analyze_video(request: PythonAnalysisRequest):
+def analyze_video(request: PythonAnalysisRequest):
     logger.info(f"Received request for session: {request.sessionId}, video: {request.videoFilePath}, weight: {request.weightKg}")
     
     try:
@@ -25,6 +25,11 @@ async def analyze_video(request: PythonAnalysisRequest):
         logger.info(f"Returning analysis: {response.validReps}/{response.totalReps} valid reps for session {request.sessionId}")
         return response
     except Exception as e:
+        import traceback
+        with open("error_log.txt", "a") as f:
+            f.write(f"Exception for session {request.sessionId}:\n")
+            f.write(traceback.format_exc())
+            f.write("\n")
         logger.error(f"Error analyzing video {request.videoFilePath}: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
