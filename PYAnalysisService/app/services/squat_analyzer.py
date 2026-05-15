@@ -46,13 +46,7 @@ class SquatAnalyzer:
         cap = cv2.VideoCapture(self.video_path)
         
         if not cap.isOpened():
-            print(f"Error abriendo archivo de video {self.video_path}")
-            return PythonAnalysisResponse(
-                sessionId=self.session_id,
-                totalReps=0,
-                validReps=0,
-                reps=[]
-            )
+            raise RuntimeError(f"OpenCV no pudo abrir el archivo de video: {self.video_path}")
 
         self.fps = cap.get(cv2.CAP_PROP_FPS)
         if self.fps == 0 or math.isnan(self.fps):
@@ -67,6 +61,10 @@ class SquatAnalyzer:
         out = cv2.VideoWriter(out_path, fourcc, self.fps, (width, height))
 
         total_velocity = 0.0
+
+        # Inicializar variables de suavizado antes del loop (ponerlas donde quieras pero que se inicien)
+        self.smoothed_knee_angle = 180.0
+        self.smoothed_hip_angle = 180.0
 
         with self.mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
             while cap.isOpened():
@@ -86,6 +84,10 @@ class SquatAnalyzer:
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
                 
                 # landmarks
+                if not results.pose_landmarks:
+                    out.write(image)
+                    continue
+                    
                 try:
                     landmarks = results.pose_landmarks.landmark
                     
@@ -117,9 +119,17 @@ class SquatAnalyzer:
                         shoulder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x, landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
                         side_text = "SIDE: LEFT"
                     
-                    # Calculo angulo
-                    knee_angle = self.calculate_angle(hip, knee, ankle)
-                    hip_angle = self.calculate_angle(shoulder, hip, knee)
+                    # Calculo angulo crudo
+                    knee_angle_raw = self.calculate_angle(hip, knee, ankle)
+                    hip_angle_raw = self.calculate_angle(shoulder, hip, knee)
+                    
+                    # Filtro suavizado exponencial (EMA)
+                    alpha = 0.2
+                    self.smoothed_knee_angle = (alpha * knee_angle_raw) + ((1 - alpha) * self.smoothed_knee_angle)
+                    self.smoothed_hip_angle = (alpha * hip_angle_raw) + ((1 - alpha) * self.smoothed_hip_angle)
+                    
+                    knee_angle = self.smoothed_knee_angle
+                    hip_angle = self.smoothed_hip_angle
                     
                     # Visualise angle
                     cv2.putText(image, str(int(knee_angle)),
@@ -130,28 +140,29 @@ class SquatAnalyzer:
                     if knee_angle > 160:
                         if self.state == "ASCENDING":
                             # termina rep
-                            self.rep_count += 1
+                            min_ascent_frames = int(self.fps * 0.25) # min 0.25s
                             
-                            # Validacion profundidad
-                            if self.current_min_knee_angle <= 90.0:
-                                self.is_current_rep_valid = True
-                                self.valid_reps += 1
+                            if self.frames_in_ascent >= min_ascent_frames:
+                                self.rep_count += 1
                                 
-                            # Aproximacion velocidad
-                            # min -> parado en frames_in_ascent
-                            # Tiempo = frames / fps
-                            ascent_time = self.frames_in_ascent / self.fps if self.frames_in_ascent > 0 else 1.0
-                            calc_velocity = 1.0 / ascent_time
-                            total_velocity += calc_velocity
+                                # Validacion profundidad
+                                if self.current_min_knee_angle <= 90.0:
+                                    self.is_current_rep_valid = True
+                                    self.valid_reps += 1
+                                    
+                                # Aproximacion velocidad
+                                ascent_time = self.frames_in_ascent / self.fps
+                                calc_velocity = 1.0 / ascent_time
+                                total_velocity += calc_velocity
 
-                            self.reps_details.append(PythonRepDetail(
-                                repNumber=self.rep_count,
-                                valid=self.is_current_rep_valid,
-                                minHipAngle=self.current_min_hip_angle,
-                                minKneeAngle=self.current_min_knee_angle,
-                                concentricVelocity=calc_velocity
-                            ))
-                            
+                                self.reps_details.append(PythonRepDetail(
+                                    repNumber=self.rep_count,
+                                    valid=self.is_current_rep_valid,
+                                    minHipAngle=self.current_min_hip_angle,
+                                    minKneeAngle=self.current_min_knee_angle,
+                                    concentricVelocity=calc_velocity
+                                ))
+                                
                             # Reset estado
                             self.current_min_knee_angle = 180.0
                             self.current_min_hip_angle = 180.0
@@ -171,8 +182,8 @@ class SquatAnalyzer:
                             if hip_angle < self.current_min_hip_angle:
                                 self.current_min_hip_angle = hip_angle
                                 
-                            # Si de repente empieza a subir el angulo crece +10 del minimo
-                            if knee_angle > self.current_min_knee_angle + 10:
+                            # Si de repente empieza a subir el angulo crece +15 del minimo
+                            if knee_angle > self.current_min_knee_angle + 15:
                                 self.state = "ASCENDING"
                                 
                         if self.state == "ASCENDING":
@@ -188,7 +199,8 @@ class SquatAnalyzer:
 
 
                 except Exception as e:
-                    print(f"Frame sin landmarks detectados: {e}")
+                    # No imprimir nada para evitar que Uvicorn colapse la tubería (WinError 233)
+                    pass
                 
                 # Render detections
                 self.mp_drawing.draw_landmarks(image, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS)
@@ -207,7 +219,10 @@ class SquatAnalyzer:
         if len(self.reps_details) >= 2:
             first_velocity = self.reps_details[0].concentricVelocity
             last_velocity = self.reps_details[-1].concentricVelocity
-            fatigue = 1 - (last_velocity / first_velocity) if first_velocity and first_velocity > 0 else 0.0
+            if first_velocity and first_velocity > 0:
+                fatigue = max(0.0, 1.0 - (last_velocity / first_velocity))
+            else:
+                fatigue = 0.0
         else:
             fatigue = 0.0
         

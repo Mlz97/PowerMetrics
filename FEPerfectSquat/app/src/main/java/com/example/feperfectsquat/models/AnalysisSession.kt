@@ -2,7 +2,12 @@ package com.example.feperfectsquat.models
 
 data class AnalysisSession(
     val id: Long,
-    val date: String,
-    val score: Double,
-    val video: Video?
+    val state: String,
+    val createdAt: String?,
+    val totalReps: Int?,
+    val validReps: Int?,
+    val avgConcentricVelocity: Double?,
+    val estimatedRM: Double?,
+    val fatigueIndex: Double?,
+    val weightKg: Int?
 )

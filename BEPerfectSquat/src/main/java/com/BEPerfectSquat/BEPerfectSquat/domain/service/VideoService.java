@@ -58,6 +58,7 @@ public class VideoService {
         newVideo.setFilePath(localFilePath);
         newVideo.setSession(session);
         newVideo.setUploadedAt(LocalDateTime.now());
+        session.setVideo(newVideo);
         Video savedVideo = videoRepository.save(newVideo);
 
         //Llamada Python

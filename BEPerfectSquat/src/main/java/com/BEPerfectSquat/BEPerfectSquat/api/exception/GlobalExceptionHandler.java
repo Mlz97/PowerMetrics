@@ -40,6 +40,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex){
+        ex.printStackTrace(); // LOG TO CONSOLE
         ErrorResponse response = new ErrorResponse(
             HttpStatus.CONFLICT.value(),
             "INVALID_STATE",
