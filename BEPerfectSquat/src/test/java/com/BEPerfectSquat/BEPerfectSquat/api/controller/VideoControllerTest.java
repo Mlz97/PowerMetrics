@@ -12,6 +12,7 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 public class VideoControllerTest {
     @MockBean
     private VideoService videoService;
+
+    @MockBean
+    private StorageService storageService;
 
     @Autowired
     private MockMvc mockMvc;

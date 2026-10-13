@@ -53,7 +53,8 @@ public class AnalysisSessionController {
         
         videoService.saveVideo(id, file, weightKg);
         AnalysisSession session = analysisSessionService.getSessionById(id);
-        return ResponseEntity.ok(AnalysisSessionResponse.from(session));
+        // 202: el análisis sigue en curso, consultar GET /session/{id} hasta FINISHED o ERROR
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(AnalysisSessionResponse.from(session));
     }
 
 
