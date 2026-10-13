@@ -22,6 +22,9 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoun
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.VideoRepository;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
+import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
+import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
+import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,7 +67,8 @@ public class VideoServiceTest {
                 .thenReturn(saveVideo);
 
         // WHEN
-        Video result = videoService.saveVideo(sessionId, file, weightKg);
+        AnalysisParameters params = new AnalysisParameters(weightKg, null, null);
+        Video result = videoService.saveVideo(sessionId, file, params);
 
         // THEN
         assertNotNull(result);
@@ -74,7 +78,7 @@ public class VideoServiceTest {
         verify(analysisSessionRepository).save(session);
         verify(videoRepository).save(any(Video.class));
         assertEquals(AnalysisSessionState.PROCESSING, session.getState());
-        verify(analysisRunner).analyze(sessionId, "uploads/video.mp4", weightKg);
+        verify(analysisRunner).analyze(sessionId, "uploads/video.mp4", ExerciseType.SQUAT, params);
     }
 
     @Test
@@ -86,10 +90,47 @@ public class VideoServiceTest {
         when(analysisSessionRepository.findById(sessionId)).thenReturn(Optional.empty());
 
         // WHEN + THEN
-        assertThrows(AnalysisSessionNotFoundException.class, () -> videoService.saveVideo(sessionId, file, null));
+        assertThrows(AnalysisSessionNotFoundException.class,
+                () -> videoService.saveVideo(sessionId, file, AnalysisParameters.empty()));
 
         verify(videoRepository, never()).save(any());
         verify(storageService, never()).store(any());
+    }
+
+    @Test
+    void saveJumpVideoStoresJumpParameters() {
+        Long sessionId = 2L;
+        MockMultipartFile file = new MockMultipartFile("file", "jump.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(sessionId);
+        session.setExerciseType(ExerciseType.VERTICAL_JUMP);
+        AnalysisParameters params = new AnalysisParameters(null, 80.0, 180.0);
+
+        when(analysisSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(storageService.store(file)).thenReturn("uploads/jump.mp4");
+        when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        videoService.saveVideo(sessionId, file, params);
+
+        assertEquals(80.0, session.getBodyWeightKg());
+        assertEquals(180.0, session.getHeightCm());
+        assertEquals(AnalysisSessionState.PROCESSING, session.getState());
+        verify(analysisRunner).analyze(sessionId, "uploads/jump.mp4", ExerciseType.VERTICAL_JUMP, params);
+    }
+
+    @Test
+    void rejectsInvalidParametersBeforeStoringVideo() {
+        Long sessionId = 2L;
+        MockMultipartFile file = new MockMultipartFile("file", "jump.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(sessionId);
+        when(analysisSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        assertThrows(InvalidAnalysisParametersException.class,
+                () -> videoService.saveVideo(sessionId, file, new AnalysisParameters(null, 80.0, 50.0)));
+
+        verify(storageService, never()).store(any());
+        assertEquals(AnalysisSessionState.WAITING, session.getState());
     }
 
     @Test
