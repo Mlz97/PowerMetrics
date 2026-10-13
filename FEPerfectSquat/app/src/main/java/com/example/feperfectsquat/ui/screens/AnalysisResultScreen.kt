@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.feperfectsquat.models.AnalysisSession
+import com.example.feperfectsquat.models.ExerciseType
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -98,6 +100,8 @@ fun AnalysisResultScreen(
 
             // Métricas del análisis
             uiState.analysisResult?.let { result ->
+                val isJump = result.exerciseType == ExerciseType.VERTICAL_JUMP
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -112,27 +116,68 @@ fun AnalysisResultScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        MetricRow("Repeticiones válidas", "${result.validReps ?: 0} / ${result.totalReps ?: 0}")
-                        
-                        result.avgConcentricVelocity?.let {
-                            MetricRow("Velocidad concéntrica media", String.format("%.2f m/s", it))
-                        }
-                        
-                        result.estimatedRM?.let {
-                            MetricRow("RM estimado (Epley)", String.format("%.1f kg", it))
-                        }
-                        
-                        result.fatigueIndex?.let {
-                            MetricRow("Índice de fatiga", String.format("%.1f%%", it * 100))
+                        if (isJump) {
+                            JumpSummaryRows(result)
+                        } else {
+                            MetricRow("Repeticiones válidas", "${result.validReps ?: 0} / ${result.totalReps ?: 0}")
+
+                            result.avgConcentricVelocity?.let {
+                                MetricRow("Velocidad concéntrica media", String.format("%.2f m/s", it))
+                            }
+
+                            result.estimatedRM?.let {
+                                MetricRow("RM estimado (Epley)", String.format("%.1f kg", it))
+                            }
+
+                            result.weightKg?.let {
+                                MetricRow("Peso utilizado", "$it kg")
+                            }
                         }
 
-                        result.weightKg?.let {
-                            MetricRow("Peso utilizado", "$it kg")
+                        result.fatigueIndex?.let {
+                            MetricRow("Índice de fatiga", String.format("%.1f%%", it * 100))
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
+
+                if (result.lowFpsWarning == true) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = "⚠️ Vídeo a ${result.videoFps?.toInt() ?: "?"} fps: graba a 60 fps o más para que la altura sea precisa.",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                if (isJump && !result.jumps.isNullOrEmpty()) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Saltos",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            result.jumps.forEach { jump ->
+                                val depth = jump.countermovementDepthCm?.let { String.format(" · bajada %.0f cm", it) } ?: ""
+                                MetricRow(
+                                    "Salto ${jump.jumpNumber}",
+                                    String.format("%.1f cm · %.2f s", jump.heightFlightCm ?: 0.0, jump.flightTime ?: 0.0) + depth
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 // Estado de la sesión
                 Card(
@@ -202,5 +247,25 @@ private fun MetricRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+@Composable
+private fun JumpSummaryRows(result: AnalysisSession) {
+    MetricRow("Saltos detectados", "${result.totalJumps ?: 0}")
+    result.bestJumpHeightCm?.let {
+        MetricRow("Mejor salto", String.format("%.1f cm", it))
+    }
+    result.avgJumpHeightCm?.let {
+        MetricRow("Altura media", String.format("%.1f cm", it))
+    }
+    result.peakPowerW?.let {
+        MetricRow("Potencia pico (Sayers)", String.format("%.0f W", it))
+    }
+    result.bodyWeightKg?.let {
+        MetricRow("Peso corporal", String.format("%.1f kg", it))
+    }
+    result.heightCm?.let {
+        MetricRow("Altura", String.format("%.0f cm", it))
     }
 }

@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.feperfectsquat.models.AnalysisSession
+import com.example.feperfectsquat.models.CreateSessionRequest
+import com.example.feperfectsquat.models.ExerciseType
 import com.example.feperfectsquat.network.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -38,23 +40,31 @@ class MainViewModel : ViewModel() {
         val sessionId: Long? = null
     )
 
-    fun analyzeVideo(context: Context, videoUri: Uri, weightKg: Double?) {
+    fun analyzeVideo(
+        context: Context,
+        videoUri: Uri,
+        exerciseType: ExerciseType,
+        weightKg: Double?,
+        bodyWeightKg: Double?,
+        heightCm: Double?
+    ) {
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(isAnalyzing = true, errorMessage = null, analysisProgress = "Creando sesión...") }
 
                 // 1. Crear sesión
-                val session = apiService.createSession()
+                val session = apiService.createSession(CreateSessionRequest(exerciseType))
                 val sessionId = session.id
                 _uiState.update { it.copy(sessionId = sessionId, analysisProgress = "Subiendo video...") }
 
                 // 2. Preparar archivo para subida
                 val filePart = prepareVideoPart(context, videoUri)
-                val weightPart = weightKg?.toString()
-                    ?.toRequestBody("text/plain".toMediaTypeOrNull())
+                val weightPart = weightKg?.toTextPart()
+                val bodyWeightPart = bodyWeightKg?.toTextPart()
+                val heightPart = heightCm?.toTextPart()
 
                 // 3. Subir video: el backend responde 202 y analiza en segundo plano
-                apiService.uploadVideo(sessionId, filePart, weightPart)
+                apiService.uploadVideo(sessionId, filePart, weightPart, bodyWeightPart, heightPart)
 
                 // 4. Consultar la sesión hasta que el análisis termine
                 _uiState.update { it.copy(analysisProgress = "Analizando video (esto puede tardar)...") }
@@ -83,6 +93,8 @@ class MainViewModel : ViewModel() {
             }
         }
     }
+
+    private fun Double.toTextPart() = toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
     private suspend fun waitForAnalysis(sessionId: Long): AnalysisSession {
         val deadline = System.currentTimeMillis() + ANALYSIS_TIMEOUT_MS

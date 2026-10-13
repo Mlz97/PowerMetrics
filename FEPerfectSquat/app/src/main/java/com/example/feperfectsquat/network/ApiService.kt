@@ -1,9 +1,11 @@
 package com.example.feperfectsquat.network
 
 import com.example.feperfectsquat.models.AnalysisSession
+import com.example.feperfectsquat.models.CreateSessionRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -13,7 +15,7 @@ import retrofit2.http.Streaming
 
 interface ApiService {
     @POST("session")
-    suspend fun createSession(): AnalysisSession
+    suspend fun createSession(@Body request: CreateSessionRequest): AnalysisSession
 
     @GET("session/{id}")
     suspend fun getSession(@Path("id") id: Long): AnalysisSession
@@ -23,7 +25,9 @@ interface ApiService {
     suspend fun uploadVideo(
         @Path("id") sessionId: Long,
         @Part file: MultipartBody.Part,
-        @Part("weightKg") weightKg: RequestBody?
+        @Part("weightKg") weightKg: RequestBody?,
+        @Part("bodyWeightKg") bodyWeightKg: RequestBody?,
+        @Part("heightCm") heightCm: RequestBody?
     ): AnalysisSession
 
     @Streaming
