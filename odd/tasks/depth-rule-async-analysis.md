@@ -9,12 +9,15 @@ Branch: feat/depth-rule-async-analysis · Delivery: ask-on-risk · Runners: `py 
 
 ## Tasks
 
-- T1 [S2] inline — history purge (local, backup branch `backup/before-video-purge`) + `.gitignore` — done
-- T2 [S1] inline — depth rule in PYAnalysisService with unit tests — pending
-- T3 [S3] inline — backend async analysis + tests — pending
-- T4 [S3] inline — app polling — pending
+- T1 [S2] inline — history purge (local, backup branch `backup/before-video-purge`) + `.gitignore` — done (9058613)
+- T2 [S1] inline — depth rule in PYAnalysisService with unit tests — done (11b98cc), RED->GREEN 7/7 unittest
+- T3 [S3] inline — backend async analysis + tests — done (0be852f), RED (missing AnalysisRunner/markAsError) -> GREEN 14/14
+- T4 [S3] inline — app polling — done (1da59c7), NOT compiled: no Android SDK locally
 
 ## Log
 
 - L1 (2026-10-13) "Vale sabiendo esto, quiero que arregles la regla de profundidad, borra el commit de los vídeos y añade uploads al gitignore. Modifica correctamente la petición del análisis. Cuando tengas esto seguimos trabajando"
 - L2 Commit bc6cc7b also carried app/Python code, so only `BEPerfectSquat/uploads` was filtered out (git filter-branch --index-filter, bc6cc7b^..main). Non-upload trees verified identical. origin/main still has the videos: a force push is the user's decision.
+- L3 Backend baseline on main was already red: JDK 25 needs `-DargLine=-Dnet.bytebuddy.experimental=true` for Mockito, and VideoControllerTest lacked a StorageService @MockBean (fixed in 0be852f).
+- L4 Async design: AnalysisRunner (@Async, @EnableAsync) calls Python and stores results or marks ERROR; updateSessionWithResults/markAsError are @Transactional because lazy repDetails are touched outside the web request thread. RestTemplate gets 5s connect / 10min read timeouts.
+- L5 gentle-ai review assess (base main, committed-only): risk medium, review_due false (under_budget). Pending: Android build check in Android Studio, end-to-end run with the Python service, force push of rewritten main.
