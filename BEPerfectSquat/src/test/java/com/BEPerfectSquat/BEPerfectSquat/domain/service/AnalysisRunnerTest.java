@@ -13,6 +13,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.ResourceAccessException;
 
+import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
+import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.AnalysisClient;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse;
 
@@ -30,9 +32,10 @@ class AnalysisRunnerTest {
     @Test
     void storesResultsWhenAnalysisSucceeds() {
         PythonAnalysisResponse response = new PythonAnalysisResponse();
-        when(analysisClient.analyzeVideo(1L, "uploads/video.mp4", 80.0)).thenReturn(response);
+        AnalysisParameters params = new AnalysisParameters(80.0, null, null);
+        when(analysisClient.analyzeVideo(1L, "uploads/video.mp4", ExerciseType.SQUAT, params)).thenReturn(response);
 
-        analysisRunner.analyze(1L, "uploads/video.mp4", 80.0);
+        analysisRunner.analyze(1L, "uploads/video.mp4", ExerciseType.SQUAT, params);
 
         verify(analysisSessionService).updateSessionWithResults(1L, response);
         verify(analysisSessionService, never()).markAsError(any());
@@ -40,10 +43,11 @@ class AnalysisRunnerTest {
 
     @Test
     void marksSessionAsErrorWhenAnalysisFails() {
-        when(analysisClient.analyzeVideo(1L, "uploads/video.mp4", null))
+        AnalysisParameters params = new AnalysisParameters(null, 80.0, 180.0);
+        when(analysisClient.analyzeVideo(1L, "uploads/video.mp4", ExerciseType.VERTICAL_JUMP, params))
                 .thenThrow(new ResourceAccessException("Python service down"));
 
-        assertDoesNotThrow(() -> analysisRunner.analyze(1L, "uploads/video.mp4", null));
+        assertDoesNotThrow(() -> analysisRunner.analyze(1L, "uploads/video.mp4", ExerciseType.VERTICAL_JUMP, params));
 
         verify(analysisSessionService).markAsError(1L);
         verify(analysisSessionService, never()).updateSessionWithResults(any(), any());

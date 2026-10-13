@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
+import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.AnalysisClient;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse;
 
@@ -22,9 +24,10 @@ public class AnalysisRunner {
     }
 
     @Async
-    public void analyze(Long sessionId, String videoFilePath, Double weightKg) {
+    public void analyze(Long sessionId, String videoFilePath, ExerciseType exerciseType,
+                        AnalysisParameters parameters) {
         try {
-            PythonAnalysisResponse response = analysisClient.analyzeVideo(sessionId, videoFilePath, weightKg);
+            PythonAnalysisResponse response = analysisClient.analyzeVideo(sessionId, videoFilePath, exerciseType, parameters);
             analysisSessionService.updateSessionWithResults(sessionId, response);
         } catch (Exception e) {
             log.error("Analysis failed for session {}", sessionId, e);

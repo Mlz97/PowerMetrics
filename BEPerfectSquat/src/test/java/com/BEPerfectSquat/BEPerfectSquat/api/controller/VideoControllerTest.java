@@ -11,6 +11,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
+import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
@@ -44,7 +45,7 @@ public class VideoControllerTest {
         video.setSession(session);
         video.setFilePath("uploads/video.mp4");
 
-        when(videoService.saveVideo(eq(1L), any(), eq(50.0))).thenReturn(video);
+        when(videoService.saveVideo(eq(1L), any(), eq(new AnalysisParameters(50.0, null, null)))).thenReturn(video);
 
         // WHEN + THEN
         mockMvc.perform(multipart("/video")
@@ -71,7 +72,7 @@ public class VideoControllerTest {
         // GIVEN
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
 
-        when(videoService.saveVideo(eq(99L), any(), eq(50.0)))
+        when(videoService.saveVideo(eq(99L), any(), eq(new AnalysisParameters(50.0, null, null))))
                 .thenThrow(new AnalysisSessionNotFoundException(99L));
 
         // WHEN + THEN

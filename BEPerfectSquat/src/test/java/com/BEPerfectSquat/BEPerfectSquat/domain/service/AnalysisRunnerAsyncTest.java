@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
+import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
+import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.AnalysisClient;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse;
 
@@ -32,13 +34,13 @@ class AnalysisRunnerAsyncTest {
     void analysisRunsOutsideTheCallerThread() throws InterruptedException {
         CountDownLatch done = new CountDownLatch(1);
         AtomicReference<String> analysisThread = new AtomicReference<>();
-        when(analysisClient.analyzeVideo(any(), any(), any())).thenAnswer(invocation -> {
+        when(analysisClient.analyzeVideo(any(), any(), any(), any())).thenAnswer(invocation -> {
             analysisThread.set(Thread.currentThread().getName());
             done.countDown();
             return new PythonAnalysisResponse();
         });
 
-        analysisRunner.analyze(1L, "uploads/video.mp4", null);
+        analysisRunner.analyze(1L, "uploads/video.mp4", ExerciseType.SQUAT, AnalysisParameters.empty());
 
         assertTrue(done.await(5, TimeUnit.SECONDS));
         assertNotEquals(Thread.currentThread().getName(), analysisThread.get());

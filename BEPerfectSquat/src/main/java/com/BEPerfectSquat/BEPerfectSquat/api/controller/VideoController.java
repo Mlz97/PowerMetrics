@@ -1,5 +1,7 @@
 package com.BEPerfectSquat.BEPerfectSquat.api.controller;
 
+import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
+
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -34,7 +36,8 @@ public class VideoController {
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @RequestParam(value = "weightKg", required = false) Double weightKg) {
         
-        Video video = videoService.saveVideo(sessionId, file, weightKg);
+        Video video = videoService.saveVideo(sessionId, file,
+                new AnalysisParameters(weightKg, null, null));
         VideoResponse response = VideoResponse.from(video);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
