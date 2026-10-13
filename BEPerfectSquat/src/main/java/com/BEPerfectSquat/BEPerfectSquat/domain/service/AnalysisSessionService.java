@@ -3,6 +3,7 @@ package com.BEPerfectSquat.BEPerfectSquat.domain.service;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
@@ -31,6 +32,7 @@ public class AnalysisSessionService {
         return session;
     }
 
+    @Transactional
     public AnalysisSession updateSessionWithResults(Long id, com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse response) {
         AnalysisSession session = analysisSessionRepository.findById(id)
                 .orElseThrow(() -> new AnalysisSessionNotFoundException(id));
@@ -70,5 +72,13 @@ public class AnalysisSessionService {
         }
 
         return analysisSessionRepository.save(session);
+    }
+
+    @Transactional
+    public void markAsError(Long id) {
+        AnalysisSession session = analysisSessionRepository.findById(id)
+                .orElseThrow(() -> new AnalysisSessionNotFoundException(id));
+        session.setState(AnalysisSessionState.ERROR);
+        analysisSessionRepository.save(session);
     }
 }

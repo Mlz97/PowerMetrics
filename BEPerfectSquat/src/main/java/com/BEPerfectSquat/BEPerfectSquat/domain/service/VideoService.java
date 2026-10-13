@@ -11,8 +11,6 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.VideoRepository;
-import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.AnalysisClient;
-import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
 @Service
@@ -20,19 +18,16 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final AnalysisSessionRepository analysisSessionRepository;
     private final StorageService storageService;
-    private final AnalysisClient analysisClient;
-    private final AnalysisSessionService analysisSessionService;
+    private final AnalysisRunner analysisRunner;
 
     public VideoService(VideoRepository videoRepository, 
                         AnalysisSessionRepository analysisSessionRepository,
                         StorageService storageService,
-                        AnalysisClient analysisClient,
-                        AnalysisSessionService analysisSessionService) {
+                        AnalysisRunner analysisRunner) {
         this.videoRepository = videoRepository;
         this.analysisSessionRepository = analysisSessionRepository;
         this.storageService = storageService;
-        this.analysisClient = analysisClient;
-        this.analysisSessionService = analysisSessionService;
+        this.analysisRunner = analysisRunner;
     }
 
     public Video saveVideo(Long sessionId, MultipartFile file, Double weightKg) {
@@ -61,17 +56,8 @@ public class VideoService {
         session.setVideo(newVideo);
         Video savedVideo = videoRepository.save(newVideo);
 
-        //Llamada Python
-        try {
-            PythonAnalysisResponse pythonResponse = analysisClient.analyzeVideo(sessionId, localFilePath, weightKg);
-            
-            // Update
-            analysisSessionService.updateSessionWithResults(sessionId, pythonResponse);
-        } catch (Exception e) {
-            session.setState(AnalysisSessionState.ERROR);
-            analysisSessionRepository.save(session);
-            throw new RuntimeException("Error en el análisis de Python: " + e.getMessage(), e);
-        }
+        // Análisis en segundo plano: la sesión pasa a FINISHED o ERROR al terminar
+        analysisRunner.analyze(sessionId, localFilePath, weightKg);
 
         return savedVideo;
     }
