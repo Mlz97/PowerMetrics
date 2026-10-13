@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.feperfectsquat.models.AnalysisSession
 import com.example.feperfectsquat.network.RetrofitClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -18,6 +19,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 
 class MainViewModel : ViewModel() {
+    private companion object {
+        const val POLL_INTERVAL_MS = 2_000L
+        const val ANALYSIS_TIMEOUT_MS = 10 * 60 * 1_000L
+    }
+
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState
 
@@ -47,11 +53,14 @@ class MainViewModel : ViewModel() {
                 val weightPart = weightKg?.toString()
                     ?.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                // 3. Subir video y esperar análisis
-                _uiState.update { it.copy(analysisProgress = "Analizando video (esto puede tardar)...") }
-                val analysisResult = apiService.uploadVideo(sessionId, filePart, weightPart)
+                // 3. Subir video: el backend responde 202 y analiza en segundo plano
+                apiService.uploadVideo(sessionId, filePart, weightPart)
 
-                // 4. Descargar video procesado
+                // 4. Consultar la sesión hasta que el análisis termine
+                _uiState.update { it.copy(analysisProgress = "Analizando video (esto puede tardar)...") }
+                val analysisResult = waitForAnalysis(sessionId)
+
+                // 5. Descargar video procesado
                 _uiState.update { it.copy(analysisProgress = "Descargando video procesado...") }
                 val processedVideoUri = downloadProcessedVideo(context, sessionId)
 
@@ -73,6 +82,19 @@ class MainViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    private suspend fun waitForAnalysis(sessionId: Long): AnalysisSession {
+        val deadline = System.currentTimeMillis() + ANALYSIS_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            val session = apiService.getSession(sessionId)
+            when (session.state) {
+                "FINISHED" -> return session
+                "ERROR" -> throw Exception("El análisis del vídeo ha fallado")
+            }
+            delay(POLL_INTERVAL_MS)
+        }
+        throw Exception("El análisis está tardando demasiado")
     }
 
     private suspend fun prepareVideoPart(context: Context, videoUri: Uri): MultipartBody.Part {
