@@ -1,6 +1,6 @@
 # Arquitectura de PowerMetrics
 
-PowerMetrics analiza vídeos de ejercicios de fuerza (hoy, la sentadilla) con visión artificial. La app Android sube el vídeo, el backend Java orquesta el proceso y un servicio Python con MediaPipe extrae las métricas. Este documento es la referencia para retomar el desarrollo: qué hace cada pieza, cómo se comunican y cómo se ejecutan.
+PowerMetrics analiza vídeos de ejercicios con visión artificial: **sentadilla** y **salto vertical con contramovimiento (CMJ)**. La app Android sube el vídeo, el backend Java orquesta el proceso y un servicio Python con MediaPipe extrae las métricas. Este documento es la referencia para retomar el desarrollo: qué hace cada pieza, cómo se comunican y cómo se ejecutan.
 
 > Pendientes y deuda técnica: [PENDIENTES.md](PENDIENTES.md).
 
@@ -12,9 +12,9 @@ sequenceDiagram
     participant BE as Backend (Spring Boot)
     participant PY as Servicio de análisis (FastAPI)
 
-    App->>BE: POST /session
+    App->>BE: POST /session {exerciseType}
     BE-->>App: 201 sesión WAITING
-    App->>BE: POST /session/{id}/video (multipart)
+    App->>BE: POST /session/{id}/video (multipart + parámetros)
     BE->>BE: guarda vídeo en uploads/, sesión PROCESSING
     BE-->>App: 202 sesión PROCESSING
     BE->>PY: POST /analyze (en segundo plano, @Async)
@@ -51,9 +51,9 @@ Organizado en capas, de fuera hacia dentro:
 
 | Método | Ruta | Respuesta | Uso |
 |---|---|---|---|
-| POST | `/session` | 201 `AnalysisSessionResponse` | Crea una sesión en `WAITING` |
+| POST | `/session` | 201 `AnalysisSessionResponse` | Crea una sesión en `WAITING`. Body opcional `{"exerciseType": "SQUAT" o "VERTICAL_JUMP"}`; sin body, `SQUAT` |
 | GET | `/session/{id}` | 200 `AnalysisSessionResponse` | Consulta estado y métricas (la app hace polling aquí) |
-| POST | `/session/{id}/video` | 202 `AnalysisSessionResponse` | Sube el vídeo (`file`, `weightKg` opcional) y lanza el análisis |
+| POST | `/session/{id}/video` | 202 `AnalysisSessionResponse` / 400 | Sube el vídeo y lanza el análisis. Parámetros opcionales: `weightKg` (barra, sentadilla), `bodyWeightKg` y `heightCm` (salto) |
 | POST | `/video` | 201 `VideoResponse` | Subida alternativa (`sessionId`, `file`, `weightKg`); duplica la anterior |
 | GET | `/video?sessionId=` | 200 `VideoResponse` | Datos del vídeo de una sesión |
 | GET | `/video/download/{sessionId}` | 200 mp4 / 404 | Descarga el vídeo anotado |
@@ -70,6 +70,7 @@ stateDiagram-v2
 ```
 
 - Solo se acepta vídeo en `WAITING`; en otro estado responde 400.
+- Rangos válidos (`AnalysisParameters`): `weightKg` 0–500, `bodyWeightKg` 20–300, `heightCm` 100–250. Fuera de rango responde 400 `INVALID_PARAMETERS` con el motivo.
 - Solo se guardan resultados en `PROCESSING`; en otro estado responde 409.
 - `AnalysisRunner.analyze` corre en otro hilo (`@EnableAsync`). Cualquier excepción deja la sesión en `ERROR`.
 - Timeouts hacia Python: 5 s de conexión y 10 min de lectura (`RestTemplateConfig`).
@@ -78,9 +79,10 @@ stateDiagram-v2
 
 | Entidad | Campos clave | Relación |
 |---|---|---|
-| `AnalysisSession` | `state`, `createdAt`, `weightKg`, `totalReps`, `validReps`, `avgConcentricVelocity`, `estimatedRM`, `fatigueIndex` | 1–1 `Video`, 1–N `RepDetail` |
+| `AnalysisSession` | Común: `exerciseType`, `state`, `createdAt`, `videoFps`, `lowFpsWarning`, `fatigueIndex`. Sentadilla: `weightKg`, `totalReps`, `validReps`, `avgConcentricVelocity`, `estimatedRM`. Salto: `bodyWeightKg`, `heightCm`, `totalJumps`, `bestJumpHeightCm`, `avgJumpHeightCm`, `peakPowerW` | 1–1 `Video`, 1–N `RepDetail`, 1–N `JumpDetail` |
 | `Video` | `filePath`, `processedFilePath`, `uploadedAt` | pertenece a una sesión |
 | `RepDetail` | `repNumber`, `valid`, `minHipAngle`, `minKneeAngle`, `concentricVelocity` | pertenece a una sesión |
+| `JumpDetail` | `jumpNumber`, `flightTime`, `heightFlightCm`, `takeoffVelocity`, `minKneeAngle`, `countermovementDepthCm`, `heightDisplacementCm`, `peakPowerW` | pertenece a una sesión; se devuelve en `jumps[]` |
 
 Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado lleva el sufijo `_analyzed.mp4`. La carpeta está en `.gitignore`.
 
@@ -90,7 +92,9 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 
 | Petición `POST /analyze` | Respuesta |
 |---|---|
-| `sessionId`, `videoFilePath` (ruta absoluta en disco), `weightKg?` | `sessionId`, `processedVideoFilePath`, `totalReps`, `validReps`, `reps[]`, `averageConcentricVelocity`, `estimatedRM`, `fatigueIndex` |
+| `sessionId`, `videoFilePath` (ruta absoluta en disco), `exerciseType` (`SQUAT` por defecto), `weightKg?`, `bodyWeightKg?`, `heightCm?` | Común: `sessionId`, `exerciseType`, `processedVideoFilePath`, `videoFps`, `lowFpsWarning`, `fatigueIndex`. Sentadilla: `totalReps`, `validReps`, `reps[]`, `averageConcentricVelocity`, `estimatedRM`. Salto: `totalJumps`, `jumps[]`, `bestJumpHeightCm`, `avgJumpHeightCm`, `peakPowerW` |
+
+`main.py` despacha según `exerciseType` a `SquatAnalyzer` o `JumpAnalyzer`.
 
 > Python lee y escribe el vídeo **en el mismo disco que el backend**, a partir de la ruta que recibe. Ambos servicios tienen que correr en la misma máquina.
 
@@ -115,6 +119,30 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 | `estimatedRM` | Epley: `peso × (1 + 0,0333 × repeticiones válidas)` | Solo si se envía `weightKg` |
 | `fatigueIndex` | `1 − v_última / v_primera`, con mínimo 0 | Necesita al menos 2 repeticiones |
 
+### Algoritmo de salto vertical (`services/jump_analyzer.py` + `services/jump_metrics.py`)
+
+`JumpAnalyzer` solo extrae una muestra por frame con MediaPipe: altura de los pies (media de talones y puntas visibles), altura de la cadera, ángulo de rodilla y longitud cadera–tobillo. Todo el cálculo vive en `jump_metrics.py`, que es puro y se testea con datos sintéticos.
+
+1. **FPS**: se usan los del vídeo; si el fichero no los declara, se asumen **60**. Por debajo de 60, `lowFpsWarning = true`.
+2. **Suelo**: mediana de la altura de los pies en todo el vídeo (la mayor parte del tiempo se está apoyado).
+3. **Vuelo**: los pies están en el aire cuando suben más de un 5 % de la longitud de la pierna sobre el suelo durante al menos 0,1 s. Los frames sin pies detectados mantienen el estado anterior.
+4. **Métricas por salto**:
+
+| Métrica | Cálculo | Necesita |
+|---|---|---|
+| `flightTime` | (frame de aterrizaje − frame de despegue) / fps | — |
+| `heightFlightCm` | `g·t² / 8` | — |
+| `takeoffVelocity` | `g·t / 2` (m/s) | — |
+| `minKneeAngle` | Mínimo en los 1,5 s previos al despegue | — |
+| `countermovementDepthCm` | Bajada máxima de la cadera respecto a la posición de pie, en los 1,5 s previos | `heightCm` |
+| `heightDisplacementCm` | Subida máxima de la cadera respecto a la posición de pie, durante el vuelo | `heightCm` |
+| `peakPowerW` | Sayers: `60,7·h(cm) + 45,3·masa(kg) − 2055` | `bodyWeightKg` |
+
+5. **Escala** (`heightCm`): la distancia cadera–tobillo es ≈ 0,491 de la estatura (Drillis y Contini), así que metros por píxel = `0,491 · altura / longitud de la pierna en píxeles`.
+6. **Sesión**: mejor salto, altura media, potencia máxima y fatiga (`1 − h_último / h_primero`).
+
+> La altura por desplazamiento incluye la extensión de tobillos en el despegue, así que suele salir algo mayor que la del tiempo de vuelo. Sirve para contrastar, no para sustituirla.
+
 ## App Android (`FEPerfectSquat`)
 
 | Pieza | Fichero | Notas |
@@ -122,6 +150,9 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 | Navegación | `ui/navigation/AppNavigation.kt` | Menú, Iniciar análisis, Resultado, Histórico, Estadísticas |
 | Estado | `ui/viewmodels/MainViewModel.kt` | Crea la sesión, sube el vídeo, hace polling y descarga el resultado |
 | Red | `network/ApiService.kt`, `network/RetrofitClient.kt` | `BASE_URL = http://10.0.2.2:8080/` (emulador → localhost) |
+| Inicio | `ui/screens/StartAnalysisScreen.kt` | Selector Sentadilla / Salto. El salto pide peso corporal y altura (obligatorios) y muestra el aviso de 60 fps |
+| FPS | `video/VideoFps.kt` | Lee los FPS del vídeo elegido con `MediaExtractor` para avisar antes de subirlo |
+| Resultado | `ui/screens/AnalysisResultScreen.kt` | Métricas según el ejercicio, lista de saltos y aviso si el vídeo iba por debajo de 60 fps |
 
 > Histórico y Estadísticas son pantallas de relleno: el backend todavía no tiene un endpoint para listar sesiones.
 
@@ -138,7 +169,7 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 | Módulo | Comando | Notas |
 |---|---|---|
 | Backend | `cd BEPerfectSquat && ./mvnw test -DargLine=-Dnet.bytebuddy.experimental=true` | El flag hace falta con JDK 25 (Mockito) |
-| Python | `cd PYAnalysisService && py -m unittest discover -s tests` | Solo lógica pura (`depth.py`); no necesita MediaPipe |
+| Python | `cd PYAnalysisService && .venv/Scripts/python -m unittest discover -s tests` | Lógica pura (`depth.py`, `jump_metrics.py`) y contrato (`models.py`); necesita `pydantic` en el venv, no MediaPipe |
 | App | Android Studio | Solo existen los tests de ejemplo |
 
 ## Convenciones de trabajo

@@ -12,13 +12,16 @@ Branch: feat/vertical-jump (stacked on feat/depth-rule-async-analysis) · Delive
 
 ## Tasks
 
-- T1 [S3, S4, S5] inline — Python: pure jump metrics module + JumpAnalyzer + request/response contract — pending
-- T2 [S1, S2, S3, S5] inline — Backend: ExerciseType, parameters, JumpDetail, client contract, response DTO + tests — pending
-- T3 [S1, S2, S5, S6] inline — App: selector, fields, FPS warning, jump result — pending
-- T4 docs — ARQUITECTURA.md and PENDIENTES.md updated — pending
+- T1 [S3, S4, S5] inline — Python: pure jump metrics module + JumpAnalyzer + request/response contract — done (674019b), RED (module missing) -> GREEN 29/29 (pydantic 2.14 venv)
+- T2 [S1, S2, S3, S5] inline — Backend: ExerciseType, parameters, JumpDetail, client contract, response DTO + tests — done (d0118a3), RED (missing symbols) -> GREEN 32/32
+- T3 [S1, S2, S5, S6] inline — App: selector, fields, FPS warning, jump result — done (4eca7af), NOT compiled: no Android SDK locally
+- T4 docs — ARQUITECTURA.md and PENDIENTES.md updated — done
 
 ## Log
 
 - L1 (2026-10-13) "Vale hazme un md con las cosas que van quedando pendientes para poder atenderlas, hazme también otro con la info de la arquitectura y todo lo necesario para consultar las bases del desarrollo. De cara a futuro quiero implementar también salto vertical además de sentadilla, así que podemos ir trabajando en eso. Preparando los endpoints y los parámetros del análisis."
 - L2 (2026-10-13) Proposal accepted with changes: "Vale, vamos a poner el aviso y que por defecto sea a 60 fps. Además de pedir la altura al usuario para hacer cálculos"
 - L3 Anthropometric scale: hip (greater trochanter) height ≈ 0.530·H and ankle height ≈ 0.039·H (Drillis & Contini), so hip→ankle ≈ 0.491·H. Measured in pixels on standing frames.
+- L4 Own test error caught before GREEN: expected Sayers power was 3456.1 W, correct value for h = 30.656 cm and 80 kg is 3429.8 W.
+- L5 Pre-existing FPS fallback for the squat stays at 30; only the jump uses the 60 fps default (S5 scope).
+- L6 Pending: Android Studio build, calibration with real jump videos, PR chain strategy (forecast > 400 lines) before opening PRs.
