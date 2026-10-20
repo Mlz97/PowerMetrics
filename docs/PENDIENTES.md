@@ -8,39 +8,36 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 
 - [ ] **Publicar el historial sin vídeos.** `main` se reescribió en local para quitar `BEPerfectSquat/uploads/`, pero `origin/main` todavía los tiene. Pasos: `git push --force-with-lease origin main`, y luego borrar `backup/before-video-purge` y ejecutar `git gc --prune=now` para recuperar espacio.
 - [ ] **Integrar `feat/depth-rule-async-analysis` en `main`** (PR o merge).
-- [ ] **Compilar la app** en Android Studio: el polling de `MainViewModel` no se ha compilado (no hay SDK de Android en el equipo donde se escribió).
+- [ ] **Compilar la app** en Android Studio: el polling de `MainViewModel` no se ha compilado (no hay SDK de Android en el equipo donde se escribió). Incluye los cambios de `fix/pending-items` (subida en streaming, `BuildConfig.BASE_URL`, Histórico y Estadísticas) y el test `SessionStatsTest`.
 - [ ] **Prueba de punta a punta** con MediaPipe instalado: subir un vídeo real y comprobar que la sesión termina en `FINISHED` y la regla de profundidad da resultados razonables.
-- [ ] **Versión de Python del servicio.** El equipo tiene Python 3.14; verificar que `mediapipe==0.10.14` tiene wheels para esa versión o usar un venv con una versión compatible.
-- [ ] **Tests del backend en JDK 25.** Hoy necesitan `-DargLine=-Dnet.bytebuddy.experimental=true`. Opciones:
-  - usar JDK 17 o 21, que es lo que pide el proyecto;
-  - subir Spring Boot o Mockito a versiones que soporten JDK 25;
-  - fijar el flag en el `argLine` de surefire en el `pom.xml`.
+- [x] **Versión de Python del servicio.** `mediapipe==0.10.14` solo publica wheels para cp39–cp312, así que no se instala en 3.14. El servicio usa Python 3.12 (`PYAnalysisService/.python-version`); MediaPipe 1.x sí tiene wheel universal, pero ya no trae la API `mp.solutions` que usan los analizadores. (4db2fc8)
+- [x] **Tests del backend en JDK 25.** El flag `-Dnet.bytebuddy.experimental=true` va fijado en el `argLine` del `pom.xml`; basta con `./mvnw test`. (e7e73df)
 
 ## Prioridad media: funcionalidad y calidad de las métricas
 
 - [ ] **Persistencia real.** H2 en memoria pierde todas las sesiones al reiniciar, y los vídeos quedan huérfanos en disco. PostgreSQL ya está en el `pom.xml`.
-- [ ] **Histórico y Estadísticas.** Falta `GET /session` (listado) en el backend; las pantallas muestran valores fijos.
+- [x] **Histórico y Estadísticas.** `GET /session` lista las sesiones (la más reciente primero) y las dos pantallas lo usan; las estadísticas solo cuentan sesiones `FINISHED`. (884d3cf)
 - [ ] **Velocidad real.** `concentricVelocity` es `1 / tiempo de subida` (1/s), no m/s. Para tener m/s hace falta una escala (altura del usuario, diámetro del disco...).
 - [ ] **Calibrar la regla de profundidad** con vídeos reales: usa centros articulares de MediaPipe y no la cresta de la cadera ni la parte superior de la rodilla.
-- [ ] **Errores silenciados en Python.** `except Exception: pass` dentro del bucle de frames: registrar con `logger` en lugar de ignorar. Quitar `error_log.txt`.
-- [ ] **Mensajes de error del backend.**
-  - `IllegalArgumentException` responde siempre "Invalid video data", aunque la causa sea el estado de la sesión.
-  - Las `RuntimeException` de `StorageService` no tienen handler y llegan como 500 genérico.
+- [x] **Errores silenciados en Python.** El bucle de frames registra el primer fallo con traza y un resumen al final (`services/frame_errors.py`); `error_log.txt` se sustituye por `logger.exception`. (4db2fc8)
+- [x] **Mensajes de error del backend.** Estado de sesión inválido → 409 `INVALID_STATE` con el estado actual; `IllegalArgumentException` devuelve su propio mensaje; `StorageException` → 500 `STORAGE_ERROR`; vídeo vacío → 400. (3c8ef1a)
 - [ ] **Acoplamiento por disco.** Python recibe una ruta absoluta del backend, así que ambos deben compartir máquina. Valorar enviar el fichero o usar un almacenamiento común.
+- [ ] **Tráfico HTTP en claro en la app.** Con `targetSdk 36` Android bloquea `http://` por defecto y el manifiesto no declara `usesCleartextTraffic` ni `networkSecurityConfig`. Comprobarlo al compilar; si falla, permitir solo `10.0.2.2` en un `network_security_config.xml` de debug.
 
 ## Prioridad baja: limpieza
 
-- [ ] `weightKg.intValue()` trunca el peso (102,5 kg → 102).
-- [ ] `AnalysisSessionService` usa nombres de clase completos en vez de imports.
-- [ ] `prepareVideoPart` carga el vídeo entero en memoria (`readBytes()`); usar un `RequestBody` en streaming.
-- [ ] `BASE_URL` fija a `10.0.2.2` (solo emulador); moverla a `BuildConfig` por variante.
-- [ ] Dos endpoints de subida: `POST /video` y `POST /session/{id}/video`; dejar uno.
-- [ ] `readTimeout` de 120 s en la app ya no hace falta con el polling.
-- [ ] `opencv-python` sin versión fijada en `requirements.txt`.
-- [ ] `pydantic==2.6.1` no tiene wheel para Python 3.14: los tests se pasaron con pydantic 2.14 en un venv local.
-- [ ] La respuesta de sesión no expone el detalle por repetición de la sentadilla (`reps[]`), aunque sí el de los saltos.
-- [ ] La app muestra la velocidad concéntrica en "m/s", pero el valor está en 1/s.
-- [ ] Carpetas `.idea/` versionadas.
+- [x] `weightKg.intValue()` trunca el peso (102,5 kg → 102): ahora se guarda y se devuelve como decimal. (77f359b)
+- [x] `AnalysisSessionService` usa nombres de clase completos en vez de imports. (3c8ef1a)
+- [x] `prepareVideoPart` carga el vídeo entero en memoria: ahora usa `ContentUriRequestBody` en streaming. (2406fa3)
+- [x] `BASE_URL` fija a `10.0.2.2`: ahora es `BuildConfig.BASE_URL` por build type, sobrescribible con `-PdebugBaseUrl=` / `-PreleaseBaseUrl=`. (2406fa3)
+- [x] Dos endpoints de subida: se elimina `POST /video`; queda `POST /session/{id}/video`. (77f359b)
+- [x] `readTimeout` de 120 s en la app: baja a 30 s, las respuestas ya son inmediatas con el polling. (2406fa3)
+- [x] `opencv-python` sin versión fijada: `opencv-python==4.10.0.84`. (4db2fc8)
+- [x] `pydantic==2.6.1` sin wheel para Python 3.14: `pydantic==2.14.1`, que tiene wheels para 3.12 y 3.14 y funciona con `fastapi==0.109.2`. (4db2fc8)
+- [x] La respuesta de sesión expone `reps[]` de la sentadilla y la app la muestra. (77f359b)
+- [x] La app mostraba la velocidad concéntrica en "m/s": ahora "1/s". (2406fa3)
+- [x] Carpetas `.idea/` versionadas: fuera del repositorio e ignoradas. (c4c4df2)
+- [ ] `numpy` no está fijado y `mediapipe==0.10.14` es anterior a NumPy 2: si al instalar aparece "compiled using NumPy 1.x", fijar `numpy<2`.
 
 ## Salto vertical
 
