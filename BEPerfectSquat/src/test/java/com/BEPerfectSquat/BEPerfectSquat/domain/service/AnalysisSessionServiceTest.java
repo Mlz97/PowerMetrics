@@ -36,6 +36,19 @@ class AnalysisSessionServiceTest {
     private AnalysisSessionService analysisSessionService;
 
     @Test
+    void listSessionsReturnsNewestFirst() {
+        AnalysisSession newest = new AnalysisSession();
+        newest.setId(2L);
+        AnalysisSession oldest = new AnalysisSession();
+        oldest.setId(1L);
+        when(analysisSessionRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(newest, oldest));
+
+        List<AnalysisSession> sessions = analysisSessionService.listSessions();
+
+        assertEquals(List.of(newest, oldest), sessions);
+    }
+
+    @Test
     void createSessionStoresExerciseType() {
         when(analysisSessionRepository.save(any(AnalysisSession.class))).thenAnswer(inv -> inv.getArgument(0));
 

@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -189,6 +191,31 @@ class AnalysisSessionControllerTest {
                 .andExpect(jsonPath("$.bestJumpHeightCm").value(30.66))
                 .andExpect(jsonPath("$.jumps[0].jumpNumber").value(1))
                 .andExpect(jsonPath("$.jumps[0].heightFlightCm").value(30.66));
+    }
+
+    @Test
+    void listSessionsReturnsAllSessionsInServiceOrder() throws Exception {
+        AnalysisSession jump = session(ExerciseType.VERTICAL_JUMP, AnalysisSessionState.FINISHED);
+        jump.setId(2L);
+        AnalysisSession squat = session(ExerciseType.SQUAT, AnalysisSessionState.ERROR);
+        when(analysisSessionService.listSessions()).thenReturn(List.of(jump, squat));
+
+        mockMvc.perform(get("/session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(2))
+                .andExpect(jsonPath("$[0].exerciseType").value("VERTICAL_JUMP"))
+                .andExpect(jsonPath("$[1].id").value(1))
+                .andExpect(jsonPath("$[1].state").value("ERROR"));
+    }
+
+    @Test
+    void listSessionsWithoutSessionsReturnsEmptyArray() throws Exception {
+        when(analysisSessionService.listSessions()).thenReturn(List.of());
+
+        mockMvc.perform(get("/session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
