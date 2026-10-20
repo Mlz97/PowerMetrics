@@ -98,6 +98,21 @@ public class VideoServiceTest {
     }
 
     @Test
+    void rejectsUploadWhenSessionIsNotWaiting() {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(1L);
+        session.setState(AnalysisSessionState.PROCESSING);
+        when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> videoService.saveVideo(1L, file, AnalysisParameters.empty()));
+
+        assertEquals("No se pueden subir videos cuando la sesión está en estado PROCESSING", ex.getMessage());
+        verify(storageService, never()).store(any());
+    }
+
+    @Test
     void saveJumpVideoStoresJumpParameters() {
         Long sessionId = 2L;
         MockMultipartFile file = new MockMultipartFile("file", "jump.mp4", "video/mp4", "content".getBytes());

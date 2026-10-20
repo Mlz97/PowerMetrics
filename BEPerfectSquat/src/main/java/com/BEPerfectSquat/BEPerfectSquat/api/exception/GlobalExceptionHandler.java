@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,9 +15,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.BEPerfectSquat.BEPerfectSquat.api.dto.response.ErrorResponse;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(AnalysisSessionNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleAnalysisSessionNotFound(AnalysisSessionNotFoundException ex){
@@ -44,7 +48,7 @@ public class GlobalExceptionHandler {
         ErrorResponse response = new ErrorResponse(
             HttpStatus.BAD_REQUEST.value(),
             "BAD_REQUEST",
-            "Invalid video data",
+            ex.getMessage() != null ? ex.getMessage() : "Invalid request",
             LocalDateTime.now()
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -52,7 +56,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex){
-        ex.printStackTrace(); // LOG TO CONSOLE
+        logger.warn("Invalid state: {}", ex.getMessage());
         ErrorResponse response = new ErrorResponse(
             HttpStatus.CONFLICT.value(),
             "INVALID_STATE",
@@ -60,6 +64,18 @@ public class GlobalExceptionHandler {
             LocalDateTime.now()
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorage(StorageException ex){
+        logger.error("Storage failure", ex);
+        ErrorResponse response = new ErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            "STORAGE_ERROR",
+            ex.getMessage(),
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
