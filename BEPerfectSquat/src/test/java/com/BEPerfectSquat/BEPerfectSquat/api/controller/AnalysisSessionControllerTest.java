@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.JumpDetail;
+import com.BEPerfectSquat.BEPerfectSquat.domain.entity.RepDetail;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
@@ -188,5 +189,29 @@ class AnalysisSessionControllerTest {
                 .andExpect(jsonPath("$.bestJumpHeightCm").value(30.66))
                 .andExpect(jsonPath("$.jumps[0].jumpNumber").value(1))
                 .andExpect(jsonPath("$.jumps[0].heightFlightCm").value(30.66));
+    }
+
+    @Test
+    void getSquatSessionReturnsRepDetailsAndDecimalWeight() throws Exception {
+        AnalysisSession session = session(ExerciseType.SQUAT, AnalysisSessionState.FINISHED);
+        session.setWeightKg(102.5);
+        session.setTotalReps(1);
+        RepDetail rep = new RepDetail();
+        rep.setRepNumber(1);
+        rep.setValid(true);
+        rep.setMinHipAngle(70.0);
+        rep.setMinKneeAngle(65.0);
+        rep.setConcentricVelocity(0.8);
+        session.getRepDetails().add(rep);
+        when(analysisSessionService.getSessionById(1L)).thenReturn(session);
+
+        mockMvc.perform(get("/session/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weightKg").value(102.5))
+                .andExpect(jsonPath("$.reps[0].repNumber").value(1))
+                .andExpect(jsonPath("$.reps[0].valid").value(true))
+                .andExpect(jsonPath("$.reps[0].minHipAngle").value(70.0))
+                .andExpect(jsonPath("$.reps[0].minKneeAngle").value(65.0))
+                .andExpect(jsonPath("$.reps[0].concentricVelocity").value(0.8));
     }
 }

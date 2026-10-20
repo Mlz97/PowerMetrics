@@ -53,7 +53,7 @@ public class AnalysisSession {
     private Double avgConcentricVelocity;
 
     @Column(name = "weight_kg")
-    private Integer weightKg;
+    private Double weightKg;
 
     @Column(name = "body_weight_kg")
     private Double bodyWeightKg;
@@ -159,11 +159,11 @@ public class AnalysisSession {
         this.avgConcentricVelocity = avgConcentricVelocity;
     }
 
-    public Integer getWeightKg() {
+    public Double getWeightKg() {
         return weightKg;
     }
 
-    public void setWeightKg(Integer weightKg) {
+    public void setWeightKg(Double weightKg) {
         this.weightKg = weightKg;
     }
 
