@@ -2,10 +2,13 @@
 venv/
 PYAnalysisService/.venv/
 **/venv/
-**/ .venv/
+**/.venv/
 
 __pycache__/
 *.pyc
 
 # Uploaded and analyzed videos (runtime data)
 BEPerfectSquat/uploads/
+
+# IDE settings
+.idea/
