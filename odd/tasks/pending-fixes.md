@@ -17,16 +17,21 @@ Branch: fix/pending-items (on feat/vertical-jump) · Delivery: ask-on-risk · Ru
 
 ## Tasks
 
-- T1 [S1] inline — pom.xml argLine — pending
-- T2 [S2, S4] inline — backend error mapping + imports — pending
-- T3 [S3, S5, S6] inline — weight as decimal, squat reps in response, single upload endpoint — pending
-- T4 [S7, S8] inline — Python logging + dependency pins — pending
-- T5 [S9] inline — app network/UI fixes — pending (not compilable locally)
-- T6 [S10] inline — untrack .idea — pending
-- T7 [S11] inline — session listing endpoint + history/statistics screens — pending
-- T8 docs — PENDIENTES.md / ARQUITECTURA.md — pending
+- T1 [S1] inline — pom.xml argLine — done (e7e73df), `./mvnw test` 32/32 without CLI flag
+- T2 [S2, S4] inline — backend error mapping + imports — done (3c8ef1a), RED (StorageException missing) -> GREEN 38/38
+- T3 [S3, S5, S6] inline — decimal weight, squat reps in response, single upload endpoint — done (77f359b), RED (Integer types) -> GREEN 39/39; app model updated, not compiled
+- T4 [S7, S8] inline — Python logging + dependency pins — done (4db2fc8), RED (frame_errors missing) -> GREEN 33/33 on pydantic 2.14.1
+- T5 [S9] inline — app network/UI fixes — done (2406fa3), NOT compiled: no Android SDK / kotlinc locally
+- T6 [S10] inline — untrack .idea — done (c4c4df2), `git check-ignore` confirms
+- T7 [S11] inline — session listing endpoint + history/statistics screens — done (884d3cf), RED (listSessions missing) -> GREEN 42/42; app part not compiled, SessionStatsTest not run
+- T8 docs — PENDIENTES.md / ARQUITECTURA.md — done
 
 ## Log
 
 - L1 (2026-10-20) "Ve resolviendo las incidencias que hay en el archivo docs/ PENDIENTES.md"
 - L2 Baseline at 9dddf8e: backend 32/32 green with `-DargLine=-Dnet.bytebuddy.experimental=true` on JDK 25.0.4.
+- L3 PyPI evidence: mediapipe 0.10.14 wheels only cp39-cp312; mediapipe 1.1.1 is py3 but drops `mp.solutions`; pydantic 2.14.1 + pydantic-core 2.50.1 have cp312 and cp314 wheels. Decision: Python 3.12 for the service.
+- L4 Probe: fastapi 0.109.2 + pydantic 2.14.1 on Python 3.14 serve PythonAnalysisRequest/Response (200 valid, 422 invalid exerciseType).
+- L5 Decision: frame failures log only the first traceback plus a summary, to avoid per-frame log floods; logging swallows broken-pipe errors that motivated the old `pass`.
+- L6 Contract changes requested by PENDIENTES: POST /video removed (app never used it), weightKg Integer -> Double in JSON (app model updated in the same commit), state errors 400 -> 409.
+- L7 Not done (need the user): force-push, merge, Android build, end-to-end with MediaPipe, calibration, persistence, real velocity, disk coupling, 60 fps recording, in-flight jump at video end, SJ/drop jump. New finding: no cleartext HTTP config in the manifest (targetSdk 36).
