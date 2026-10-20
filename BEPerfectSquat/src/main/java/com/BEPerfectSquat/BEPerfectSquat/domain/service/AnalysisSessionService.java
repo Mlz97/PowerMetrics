@@ -1,6 +1,7 @@
 package com.BEPerfectSquat.BEPerfectSquat.domain.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,10 @@ public class AnalysisSessionService {
         newSession.setState(AnalysisSessionState.WAITING);
         newSession.setCreatedAt(LocalDateTime.now());
         return analysisSessionRepository.save(newSession);
+    }
+
+    public List<AnalysisSession> listSessions() {
+        return analysisSessionRepository.findAllByOrderByCreatedAtDesc();
     }
 
     public AnalysisSession getSessionById(Long id) {
