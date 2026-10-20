@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.feperfectsquat.models.AnalysisSession
 import com.example.feperfectsquat.models.CreateSessionRequest
 import com.example.feperfectsquat.models.ExerciseType
+import com.example.feperfectsquat.network.ContentUriRequestBody
 import com.example.feperfectsquat.network.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -109,16 +110,10 @@ class MainViewModel : ViewModel() {
         throw Exception("El análisis está tardando demasiado")
     }
 
-    private suspend fun prepareVideoPart(context: Context, videoUri: Uri): MultipartBody.Part {
-        return withContext(Dispatchers.IO) {
-            val inputStream = context.contentResolver.openInputStream(videoUri)
-                ?: throw Exception("No se pudo abrir el video")
-            val bytes = inputStream.readBytes()
-            inputStream.close()
-
-            val requestBody = bytes.toRequestBody("video/mp4".toMediaTypeOrNull())
-            MultipartBody.Part.createFormData("file", "squat_video.mp4", requestBody)
-        }
+    private fun prepareVideoPart(context: Context, videoUri: Uri): MultipartBody.Part {
+        // El vídeo se lee mientras se envía, sin cargarlo entero en memoria
+        val requestBody = ContentUriRequestBody(context.contentResolver, videoUri, "video/mp4".toMediaTypeOrNull())
+        return MultipartBody.Part.createFormData("file", "squat_video.mp4", requestBody)
     }
 
     private suspend fun downloadProcessedVideo(context: Context, sessionId: Long): Uri {
