@@ -134,6 +134,21 @@ public class VideoServiceTest {
     }
 
     @Test
+    void saveSquatVideoKeepsDecimalWeight() {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(3L);
+
+        when(analysisSessionRepository.findById(3L)).thenReturn(Optional.of(session));
+        when(storageService.store(file)).thenReturn("uploads/video.mp4");
+        when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        videoService.saveVideo(3L, file, new AnalysisParameters(102.5, null, null));
+
+        assertEquals(102.5, session.getWeightKg());
+    }
+
+    @Test
     void rejectsInvalidParametersBeforeStoringVideo() {
         Long sessionId = 2L;
         MockMultipartFile file = new MockMultipartFile("file", "jump.mp4", "video/mp4", "content".getBytes());
