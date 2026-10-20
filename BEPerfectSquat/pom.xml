@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
+		<!-- Lets Mockito/ByteBuddy instrument classes on JDKs newer than they officially support (e.g. JDK 25) -->
+		<argLine>-Dnet.bytebuddy.experimental=true</argLine>
 	</properties>
 	<dependencies>
 		<dependency>
