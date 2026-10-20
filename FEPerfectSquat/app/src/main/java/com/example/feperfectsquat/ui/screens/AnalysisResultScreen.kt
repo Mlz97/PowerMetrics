@@ -122,7 +122,7 @@ fun AnalysisResultScreen(
                             MetricRow("Repeticiones válidas", "${result.validReps ?: 0} / ${result.totalReps ?: 0}")
 
                             result.avgConcentricVelocity?.let {
-                                MetricRow("Velocidad concéntrica media", String.format("%.2f m/s", it))
+                                MetricRow("Velocidad concéntrica media", String.format("%.2f 1/s", it))
                             }
 
                             result.estimatedRM?.let {
