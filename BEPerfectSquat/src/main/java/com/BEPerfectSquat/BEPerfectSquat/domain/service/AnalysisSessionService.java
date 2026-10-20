@@ -8,11 +8,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.JumpDetail;
+import com.BEPerfectSquat.BEPerfectSquat.domain.entity.RepDetail;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonJumpDetail;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonRepDetail;
 
 @Service
 public class AnalysisSessionService {
@@ -37,7 +40,7 @@ public class AnalysisSessionService {
     }
 
     @Transactional
-    public AnalysisSession updateSessionWithResults(Long id, com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse response) {
+    public AnalysisSession updateSessionWithResults(Long id, PythonAnalysisResponse response) {
         AnalysisSession session = analysisSessionRepository.findById(id)
                 .orElseThrow(() -> new AnalysisSessionNotFoundException(id));
 
@@ -61,8 +64,8 @@ public class AnalysisSessionService {
 
         if (response.getReps() != null) {
             session.getRepDetails().clear();
-            for (com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonRepDetail rep : response.getReps()) {
-                com.BEPerfectSquat.BEPerfectSquat.domain.entity.RepDetail detail = new com.BEPerfectSquat.BEPerfectSquat.domain.entity.RepDetail();
+            for (PythonRepDetail rep : response.getReps()) {
+                RepDetail detail = new RepDetail();
                 detail.setRepNumber(rep.getRepNumber());
                 detail.setValid(rep.getValid());
                 detail.setMinHipAngle(rep.getMinHipAngle());

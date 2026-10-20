@@ -27,6 +27,7 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParamet
 import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.AnalysisSessionService;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageException;
 
 @WebMvcTest(AnalysisSessionController.class)
 class AnalysisSessionControllerTest {
@@ -123,6 +124,42 @@ class AnalysisSessionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("INVALID_PARAMETERS"))
                 .andExpect(jsonPath("$.message").value("heightCm debe estar entre 100 y 250"));
+    }
+
+    @Test
+    void uploadVideoOnNonWaitingSessionReturnsConflictWithCause() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), any(), any()))
+                .thenThrow(new IllegalStateException("No se pueden subir videos cuando la sesión está en estado FINISHED"));
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("INVALID_STATE"))
+                .andExpect(jsonPath("$.message").value("No se pueden subir videos cuando la sesión está en estado FINISHED"));
+    }
+
+    @Test
+    void uploadVideoBadArgumentReturnsItsMessage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), any(), any()))
+                .thenThrow(new IllegalArgumentException("El archivo de vídeo está vacío"));
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("El archivo de vídeo está vacío"));
+    }
+
+    @Test
+    void uploadVideoStorageFailureReturnsStorageError() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), any(), any()))
+                .thenThrow(new StorageException("Fallo al guardar el archivo."));
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("STORAGE_ERROR"))
+                .andExpect(jsonPath("$.message").value("Fallo al guardar el archivo."));
     }
 
     @Test
