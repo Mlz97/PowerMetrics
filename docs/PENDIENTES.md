@@ -10,7 +10,7 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 - [ ] **Integrar `feat/depth-rule-async-analysis` en `main`** (PR o merge).
 - [ ] **Compilar la app** en Android Studio: el polling de `MainViewModel` no se ha compilado (no hay SDK de Android en el equipo donde se escribió). Incluye los cambios de `fix/pending-items` (subida en streaming, `BuildConfig.BASE_URL`, Histórico y Estadísticas) y el test `SessionStatsTest`.
 - [ ] **Prueba de punta a punta** con MediaPipe instalado: subir un vídeo real y comprobar que la sesión termina en `FINISHED` y la regla de profundidad da resultados razonables.
-- [x] **Versión de Python del servicio.** `mediapipe==0.10.14` solo publica wheels para cp39–cp312, así que no se instala en 3.14. El servicio usa Python 3.12 (`PYAnalysisService/.python-version`); MediaPipe 1.x sí tiene wheel universal, pero ya no trae la API `mp.solutions` que usan los analizadores. (4db2fc8)
+- [x] **Versión de Python del servicio.** `mediapipe==0.10.14` solo publica wheels para cp39–cp312, así que no se instala en 3.14. El servicio usa Python 3.12 (`PYAnalysisService/.python-version`); MediaPipe 1.x sí tiene wheel universal, pero no se ha comprobado que mantenga la API `mp.solutions` que usan los analizadores. (4db2fc8)
 - [x] **Tests del backend en JDK 25.** El flag `-Dnet.bytebuddy.experimental=true` va fijado en el `argLine` del `pom.xml`; basta con `./mvnw test`. (e7e73df)
 
 ## Prioridad media: funcionalidad y calidad de las métricas

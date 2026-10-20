@@ -30,7 +30,7 @@ Branch: fix/pending-items (on feat/vertical-jump) · Delivery: ask-on-risk · Ru
 
 - L1 (2026-10-20) "Ve resolviendo las incidencias que hay en el archivo docs/ PENDIENTES.md"
 - L2 Baseline at 9dddf8e: backend 32/32 green with `-DargLine=-Dnet.bytebuddy.experimental=true` on JDK 25.0.4.
-- L3 PyPI evidence: mediapipe 0.10.14 wheels only cp39-cp312; mediapipe 1.1.1 is py3 but drops `mp.solutions`; pydantic 2.14.1 + pydantic-core 2.50.1 have cp312 and cp314 wheels. Decision: Python 3.12 for the service.
+- L3 PyPI evidence: mediapipe 0.10.14 wheels only cp39-cp312; mediapipe 1.1.1 is py3 (not verified whether it keeps `mp.solutions`); pydantic 2.14.1 + pydantic-core 2.50.1 have cp312 and cp314 wheels. Decision: Python 3.12 for the service.
 - L4 Probe: fastapi 0.109.2 + pydantic 2.14.1 on Python 3.14 serve PythonAnalysisRequest/Response (200 valid, 422 invalid exerciseType).
 - L5 Decision: frame failures log only the first traceback plus a summary, to avoid per-frame log floods; logging swallows broken-pipe errors that motivated the old `pass`.
 - L6 Contract changes requested by PENDIENTES: POST /video removed (app never used it), weightKg Integer -> Double in JSON (app model updated in the same commit), state errors 400 -> 409.
