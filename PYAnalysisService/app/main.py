@@ -34,12 +34,7 @@ def analyze_video(request: PythonAnalysisRequest):
             logger.info(f"Returning analysis: {response.validReps}/{response.totalReps} valid reps for session {request.sessionId}")
         return response
     except Exception as e:
-        import traceback
-        with open("error_log.txt", "a") as f:
-            f.write(f"Exception for session {request.sessionId}:\n")
-            f.write(traceback.format_exc())
-            f.write("\n")
-        logger.error(f"Error analyzing video {request.videoFilePath}: {e}")
+        logger.exception(f"Error analyzing video {request.videoFilePath} for session {request.sessionId}: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 if __name__ == "__main__":

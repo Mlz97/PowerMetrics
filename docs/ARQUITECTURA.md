@@ -160,7 +160,7 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 
 | Paso | Comando |
 |---|---|
-| 1. Servicio de análisis | `cd PYAnalysisService && pip install -r requirements.txt && cd app && python main.py` |
+| 1. Servicio de análisis | `cd PYAnalysisService && py -3.12 -m venv .venv && .venv/Scripts/pip install -r requirements.txt && cd app && ../.venv/Scripts/python main.py` (Python 3.12: `mediapipe==0.10.14` solo publica wheels hasta 3.12; ver `.python-version`) |
 | 2. Backend | `cd BEPerfectSquat && ./mvnw spring-boot:run` |
 | 3. App | Abrir `FEPerfectSquat/` en Android Studio y ejecutar en el emulador |
 
@@ -168,8 +168,8 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 
 | Módulo | Comando | Notas |
 |---|---|---|
-| Backend | `cd BEPerfectSquat && ./mvnw test -DargLine=-Dnet.bytebuddy.experimental=true` | El flag hace falta con JDK 25 (Mockito) |
-| Python | `cd PYAnalysisService && .venv/Scripts/python -m unittest discover -s tests` | Lógica pura (`depth.py`, `jump_metrics.py`) y contrato (`models.py`); necesita `pydantic` en el venv, no MediaPipe |
+| Backend | `cd BEPerfectSquat && ./mvnw test` | El `pom.xml` fija `-Dnet.bytebuddy.experimental=true` en el `argLine` para que Mockito funcione con JDK 25 |
+| Python | `cd PYAnalysisService && .venv/Scripts/python -m unittest discover -s tests` | Lógica pura (`depth.py`, `jump_metrics.py`) y contrato (`models.py`); necesita `pydantic` en el venv, no MediaPipe; corren en Python 3.12 o 3.14 |
 | App | Android Studio | Solo existen los tests de ejemplo |
 
 ## Convenciones de trabajo
