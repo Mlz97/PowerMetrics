@@ -8,7 +8,7 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 
 - [x] **Publicar el historial sin vídeos.** `origin/main` reescrito sin `BEPerfectSquat/uploads/` (force push a `c13171d`); `backup/before-video-purge` borrada y `git gc --prune=now` ejecutado (`.git` de 46 MB a 1,2 MB).
 - [ ] **Integrar `feat/depth-rule-async-analysis` en `main`** (PR o merge).
-- [ ] **Compilar la app** en Android Studio: el polling de `MainViewModel` no se ha compilado (no hay SDK de Android en el equipo donde se escribió).
+- [x] **Compilar la app**: `./gradlew assembleDebug testDebugUnitTest` en verde sobre `feat/vertical-jump` (incluye el polling de `MainViewModel`).
 - [ ] **Prueba de punta a punta** con MediaPipe instalado: subir un vídeo real y comprobar que la sesión termina en `FINISHED` y la regla de profundidad da resultados razonables.
 - [ ] **Versión de Python del servicio.** El equipo tiene Python 3.14; verificar que `mediapipe==0.10.14` tiene wheels para esa versión o usar un venv con una versión compatible.
 - [ ] **Tests del backend en JDK 25.** Hoy necesitan `-DargLine=-Dnet.bytebuddy.experimental=true`. Opciones:
@@ -46,7 +46,7 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 
 Implementado en `feat/vertical-jump` (seguimiento: `odd/tasks/vertical-jump.md`). Queda:
 
-- [ ] **Compilar la app** con los cambios del salto (selector, campos, aviso de FPS, resultado).
+- [x] **Compilar la app** con los cambios del salto (selector, campos, aviso de FPS, resultado): compila sin errores.
 - [ ] **Calibrar con vídeos reales**: umbral de vuelo (5 % de la pierna), duración mínima (0,1 s) y ventana del contramovimiento (1,5 s).
 - [ ] **Grabar desde la app a 60 fps**: hoy solo se elige un vídeo de la galería y se avisa si viene por debajo de 60 fps.
 - [ ] **Salto en curso al final del vídeo**: si el vídeo termina en el aire, ese salto no se cuenta.
