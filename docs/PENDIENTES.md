@@ -6,7 +6,7 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 
 ## Prioridad alta: bloquea o pone en riesgo el trabajo
 
-- [ ] **Publicar el historial sin vídeos.** `main` se reescribió en local para quitar `BEPerfectSquat/uploads/`, pero `origin/main` todavía los tiene. Pasos: `git push --force-with-lease origin main`, y luego borrar `backup/before-video-purge` y ejecutar `git gc --prune=now` para recuperar espacio.
+- [x] **Publicar el historial sin vídeos.** `origin/main` reescrito sin `BEPerfectSquat/uploads/` (force push a `c13171d`); `backup/before-video-purge` borrada y `git gc --prune=now` ejecutado (`.git` de 46 MB a 1,2 MB).
 - [ ] **Integrar `feat/depth-rule-async-analysis` en `main`** (PR o merge).
 - [ ] **Compilar la app** en Android Studio: el polling de `MainViewModel` no se ha compilado (no hay SDK de Android en el equipo donde se escribió).
 - [ ] **Prueba de punta a punta** con MediaPipe instalado: subir un vídeo real y comprobar que la sesión termina en `FINISHED` y la regla de profundidad da resultados razonables.
