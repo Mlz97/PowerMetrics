@@ -4,6 +4,7 @@ import numpy as np
 import math
 from models import PythonRepDetail, PythonAnalysisResponse
 from services.depth import DepthTracker
+from services.video_paths import analyzed_output_path
 
 class SquatAnalyzer:
     def __init__(self, session_id: int, video_path: str, weight_kg: float = None):
@@ -58,7 +59,7 @@ class SquatAnalyzer:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
         # Preparar grabacion de archivo de salida
-        out_path = self.video_path.replace(".mp4", "_analyzed.mp4")
+        out_path = analyzed_output_path(self.video_path)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(out_path, fourcc, self.fps, (width, height))
 
