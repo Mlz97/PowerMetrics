@@ -32,6 +32,7 @@ import com.example.feperfectsquat.ui.screens.AppShell
 import com.example.feperfectsquat.ui.screens.AppTab
 import com.example.feperfectsquat.ui.screens.analyze.AnalyzeScreen
 import com.example.feperfectsquat.ui.screens.analyze.TrackedVideoDialog
+import com.example.feperfectsquat.ui.screens.history.HistoryScreen
 import com.example.feperfectsquat.ui.screens.home.CommunityTeaser
 import com.example.feperfectsquat.ui.screens.home.HomeScreen
 import com.example.feperfectsquat.ui.screens.onboarding.ProfileScreen
@@ -96,6 +97,7 @@ private fun AppTabs(
     var tab by rememberSaveable { mutableStateOf(AppTab.HOME) }
     var statsLift by rememberSaveable { mutableStateOf(ExerciseType.SQUAT) }
     var analyzeLift by rememberSaveable { mutableStateOf(ExerciseType.SQUAT) }
+    var historyLift by rememberSaveable { mutableStateOf(ExerciseType.SQUAT) }
     var loadKg by rememberSaveable { mutableDoubleStateOf(120.0) }
     var showTrackedVideo by rememberSaveable { mutableStateOf(false) }
 
@@ -147,10 +149,20 @@ private fun AppTabs(
                 onRetry = analysisViewModel::clearAnalysis,
                 onDone = analysisViewModel::clearAnalysis,
                 onOpenHistory = {
+                    historyLift = analysisState.exerciseType
                     analysisViewModel.clearAnalysis()
                     tab = AppTab.HISTORY
                 },
                 onWatchVideo = { showTrackedVideo = true },
+            )
+            AppTab.HISTORY -> HistoryScreen(
+                sessions = sessionsState.sessions,
+                isLoading = sessionsState.isLoading,
+                errorMessage = sessionsState.errorMessage,
+                lift = historyLift,
+                onLiftChange = { historyLift = it },
+                profile = profile,
+                onRetry = sessionsViewModel::loadSessions,
             )
             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(current.label, color = PmTextMuted)
