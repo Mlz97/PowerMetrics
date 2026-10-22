@@ -13,6 +13,12 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 - [ ] **Versión de Python del servicio.** El equipo tiene Python 3.14; verificar que `mediapipe==0.10.14` tiene wheels para esa versión o usar un venv con una versión compatible.
 - [x] **Tests del backend en JDK 25.** `byte-buddy.version` fijado a 1.17.6 en el `pom.xml` (la 1.15.11 que trae Spring Boot 3.4 rechaza JDK 25); `./mvnw test` pasa sin flags.
 
+- [ ] **Integrar `fix/pending-items`.** La rama sale de `feat/vertical-jump` en `9dddf8e` y no incluye los commits posteriores. Al integrarla:
+  - JDK 25 está resuelto de dos formas: `fix/pending-items` usa el flag experimental en el `argLine` (`e7e73df`) y esta rama fija `byte-buddy` 1.17.6 (`118b5f2`). Quedarse con una sola; la recomendada es la de `byte-buddy`, porque no depende de un modo experimental.
+  - `PENDIENTES.md` va a entrar en conflicto: combinar los puntos cerrados de ambas ramas.
+  - La compilación de la app verificada aquí no incluye sus cambios en la app: subida en streaming, `BuildConfig.BASE_URL`, Histórico, Estadísticas y el test `SessionStatsTest`. Hay que volver a compilar.
+- [ ] **Tráfico HTTP en claro en la app** (detectado en `fix/pending-items`). Con `targetSdk 36` Android bloquea `http://` por defecto, y el manifiesto no declara `usesCleartextTraffic` ni `networkSecurityConfig`. La app compila, pero no se ha probado en un dispositivo. Si falla, permitir solo `10.0.2.2` en un `network_security_config.xml` de debug.
+
 ## Prioridad media: funcionalidad y calidad de las métricas
 
 - [ ] **Persistencia real.** H2 en memoria pierde todas las sesiones al reiniciar, y los vídeos quedan huérfanos en disco. PostgreSQL ya está en el `pom.xml`.
@@ -38,6 +44,24 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 - [ ] La respuesta de sesión no expone el detalle por repetición de la sentadilla (`reps[]`), aunque sí el de los saltos.
 - [ ] La app muestra la velocidad concéntrica en "m/s", pero el valor está en 1/s.
 - [ ] Carpetas `.idea/` versionadas.
+
+- [ ] `numpy` no está fijado y `mediapipe==0.10.14` es anterior a NumPy 2: si al instalar aparece "compiled using NumPy 1.x", fijar `numpy<2` (detectado en `fix/pending-items`).
+
+## Resuelto en `fix/pending-items`, pendiente de integrar
+
+Estos puntos de la lista ya están resueltos en esa rama. Se marcarán como cerrados aquí cuando se integre.
+
+| Punto | Commit |
+|---|---|
+| Versión de Python: el servicio usa Python 3.12 (`.python-version`), porque `mediapipe==0.10.14` solo publica wheels hasta cp312. No se ha comprobado que MediaPipe 1.x mantenga la API `mp.solutions`. | `4db2fc8`, `ac048d6` |
+| Errores silenciados en Python: se registra el primer fallo con su traza y un resumen; fuera `error_log.txt`. | `4db2fc8` |
+| `opencv-python==4.10.0.84` y `pydantic==2.14.1` fijados. | `4db2fc8` |
+| Mensajes de error del backend: 409 `INVALID_STATE`, mensaje real de `IllegalArgumentException`, 500 `STORAGE_ERROR`. | `3c8ef1a` |
+| Imports en `AnalysisSessionService`. | `3c8ef1a` |
+| Peso decimal, `reps[]` de la sentadilla en la respuesta y eliminación de `POST /video`. | `77f359b` |
+| App: subida en streaming, `BuildConfig.BASE_URL` por variante, `readTimeout` de 30 s y unidad "1/s". | `2406fa3` |
+| `.idea/` fuera del repositorio. | `c4c4df2` |
+| Histórico y Estadísticas con `GET /session`. | `884d3cf` |
 
 ## Salto vertical
 
