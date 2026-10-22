@@ -1,5 +1,7 @@
 package com.BEPerfectSquat.BEPerfectSquat.api.controller;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,6 +44,15 @@ public class AnalysisSessionController {
         AnalysisSession session = analysisSessionService.createSession(sessionRequest.getExerciseType());
         AnalysisSessionResponse response = AnalysisSessionResponse.from(session);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // Más reciente primero
+    @GetMapping
+    public ResponseEntity<List<AnalysisSessionResponse>> listSessions() {
+        List<AnalysisSessionResponse> sessions = analysisSessionService.listSessions().stream()
+                .map(AnalysisSessionResponse::from)
+                .toList();
+        return ResponseEntity.ok(sessions);
     }
 
     @GetMapping("/{id}")

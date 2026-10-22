@@ -36,7 +36,7 @@ public class VideoService {
                 .orElseThrow(() -> new AnalysisSessionNotFoundException(sessionId));
                 
         if (session.getState() != AnalysisSessionState.WAITING) {
-            throw new IllegalArgumentException(
+            throw new IllegalStateException(
                     "No se pueden subir videos cuando la sesión está en estado " + session.getState());
         }
 
@@ -47,9 +47,7 @@ public class VideoService {
 
         //Processing y guardar Video
         session.setState(AnalysisSessionState.PROCESSING);
-        if (parameters.weightKg() != null) {
-            session.setWeightKg(parameters.weightKg().intValue());
-        }
+        session.setWeightKg(parameters.weightKg());
         session.setBodyWeightKg(parameters.bodyWeightKg());
         session.setHeightCm(parameters.heightCm());
         analysisSessionRepository.save(session);

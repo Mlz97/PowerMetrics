@@ -52,9 +52,9 @@ Organizado en capas, de fuera hacia dentro:
 | Método | Ruta | Respuesta | Uso |
 |---|---|---|---|
 | POST | `/session` | 201 `AnalysisSessionResponse` | Crea una sesión en `WAITING`. Body opcional `{"exerciseType": "SQUAT" o "VERTICAL_JUMP"}`; sin body, `SQUAT` |
-| GET | `/session/{id}` | 200 `AnalysisSessionResponse` | Consulta estado y métricas (la app hace polling aquí) |
-| POST | `/session/{id}/video` | 202 `AnalysisSessionResponse` / 400 | Sube el vídeo y lanza el análisis. Parámetros opcionales: `weightKg` (barra, sentadilla), `bodyWeightKg` y `heightCm` (salto) |
-| POST | `/video` | 201 `VideoResponse` | Subida alternativa (`sessionId`, `file`, `weightKg`); duplica la anterior |
+| GET | `/session` | 200 `AnalysisSessionResponse[]` | Lista todas las sesiones, la más reciente primero (Histórico y Estadísticas) |
+| GET | `/session/{id}` | 200 `AnalysisSessionResponse` | Consulta estado y métricas, con `reps[]` (sentadilla) o `jumps[]` (salto); la app hace polling aquí |
+| POST | `/session/{id}/video` | 202 `AnalysisSessionResponse` / 400 / 409 / 500 | Única subida: guarda el vídeo y lanza el análisis. Parámetros opcionales: `weightKg` (barra, sentadilla, admite decimales), `bodyWeightKg` y `heightCm` (salto) |
 | GET | `/video?sessionId=` | 200 `VideoResponse` | Datos del vídeo de una sesión |
 | GET | `/video/download/{sessionId}` | 200 mp4 / 404 | Descarga el vídeo anotado |
 | — | `/h2-console` | — | Consola de la base de datos (solo desarrollo) |
@@ -69,7 +69,8 @@ stateDiagram-v2
     PROCESSING --> ERROR: fallo o timeout de Python
 ```
 
-- Solo se acepta vídeo en `WAITING`; en otro estado responde 400.
+- Solo se acepta vídeo en `WAITING`; en otro estado responde 409 `INVALID_STATE` con el estado actual.
+- Vídeo vacío: 400 `BAD_REQUEST` con el motivo. Fallo al escribir o leer en disco: 500 `STORAGE_ERROR` (`StorageException`).
 - Rangos válidos (`AnalysisParameters`): `weightKg` 0–500, `bodyWeightKg` 20–300, `heightCm` 100–250. Fuera de rango responde 400 `INVALID_PARAMETERS` con el motivo.
 - Solo se guardan resultados en `PROCESSING`; en otro estado responde 409.
 - `AnalysisRunner.analyze` corre en otro hilo (`@EnableAsync`). Cualquier excepción deja la sesión en `ERROR`.
@@ -149,18 +150,18 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 |---|---|---|
 | Navegación | `ui/navigation/AppNavigation.kt` | Menú, Iniciar análisis, Resultado, Histórico, Estadísticas |
 | Estado | `ui/viewmodels/MainViewModel.kt` | Crea la sesión, sube el vídeo, hace polling y descarga el resultado |
-| Red | `network/ApiService.kt`, `network/RetrofitClient.kt` | `BASE_URL = http://10.0.2.2:8080/` (emulador → localhost) |
+| Red | `network/ApiService.kt`, `network/RetrofitClient.kt`, `network/ContentUriRequestBody.kt` | `BuildConfig.BASE_URL` por build type (por defecto `http://10.0.2.2:8080/`, emulador → localhost; se cambia con `-PdebugBaseUrl=` / `-PreleaseBaseUrl=`). El vídeo se sube en streaming desde el `ContentResolver` |
+| Histórico / Estadísticas | `ui/screens/HistoryScreen.kt`, `ui/screens/StatisticsScreen.kt`, `ui/viewmodels/SessionsViewModel.kt`, `models/SessionStats.kt` | Cargan `GET /session`; las estadísticas solo cuentan sesiones `FINISHED` |
 | Inicio | `ui/screens/StartAnalysisScreen.kt` | Selector Sentadilla / Salto. El salto pide peso corporal y altura (obligatorios) y muestra el aviso de 60 fps |
 | FPS | `video/VideoFps.kt` | Lee los FPS del vídeo elegido con `MediaExtractor` para avisar antes de subirlo |
 | Resultado | `ui/screens/AnalysisResultScreen.kt` | Métricas según el ejercicio, lista de saltos y aviso si el vídeo iba por debajo de 60 fps |
 
-> Histórico y Estadísticas son pantallas de relleno: el backend todavía no tiene un endpoint para listar sesiones.
 
 ## Cómo ejecutarlo en local
 
 | Paso | Comando |
 |---|---|
-| 1. Servicio de análisis | `cd PYAnalysisService && pip install -r requirements.txt && cd app && python main.py` |
+| 1. Servicio de análisis | `cd PYAnalysisService && py -3.12 -m venv .venv && .venv/Scripts/pip install -r requirements.txt && cd app && ../.venv/Scripts/python main.py` (Python 3.12: `mediapipe==0.10.14` solo publica wheels hasta 3.12; ver `.python-version`) |
 | 2. Backend | `cd BEPerfectSquat && ./mvnw spring-boot:run` |
 | 3. App | Abrir `FEPerfectSquat/` en Android Studio y ejecutar en el emulador |
 
@@ -168,8 +169,8 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 
 | Módulo | Comando | Notas |
 |---|---|---|
-| Backend | `cd BEPerfectSquat && ./mvnw test -DargLine=-Dnet.bytebuddy.experimental=true` | El flag hace falta con JDK 25 (Mockito) |
-| Python | `cd PYAnalysisService && .venv/Scripts/python -m unittest discover -s tests` | Lógica pura (`depth.py`, `jump_metrics.py`) y contrato (`models.py`); necesita `pydantic` en el venv, no MediaPipe |
+| Backend | `cd BEPerfectSquat && ./mvnw test` | El `pom.xml` fija `-Dnet.bytebuddy.experimental=true` en el `argLine` para que Mockito funcione con JDK 25 |
+| Python | `cd PYAnalysisService && .venv/Scripts/python -m unittest discover -s tests` | Lógica pura (`depth.py`, `jump_metrics.py`) y contrato (`models.py`); necesita `pydantic` en el venv, no MediaPipe; corren en Python 3.12 o 3.14 |
 | App | Android Studio | Solo existen los tests de ejemplo |
 
 ## Convenciones de trabajo

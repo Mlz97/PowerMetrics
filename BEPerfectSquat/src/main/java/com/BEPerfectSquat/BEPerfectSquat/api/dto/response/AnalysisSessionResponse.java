@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.JumpDetail;
+import com.BEPerfectSquat.BEPerfectSquat.domain.entity.RepDetail;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
 
@@ -22,7 +23,8 @@ public class AnalysisSessionResponse {
     private Integer validReps;
     private Double avgConcentricVelocity;
     private Double estimatedRM;
-    private Integer weightKg;
+    private Double weightKg;
+    private List<RepResponse> reps;
 
     // Salto vertical
     private Double bodyWeightKg;
@@ -34,6 +36,15 @@ public class AnalysisSessionResponse {
     private List<JumpResponse> jumps;
 
     private Double fatigueIndex;
+
+    public record RepResponse(Integer repNumber, Boolean valid, Double minHipAngle, Double minKneeAngle,
+                              Double concentricVelocity) {
+
+        static RepResponse from(RepDetail rep) {
+            return new RepResponse(rep.getRepNumber(), rep.getValid(), rep.getMinHipAngle(), rep.getMinKneeAngle(),
+                    rep.getConcentricVelocity());
+        }
+    }
 
     public record JumpResponse(Integer jumpNumber, Double flightTime, Double heightFlightCm, Double takeoffVelocity,
                                Double minKneeAngle, Double countermovementDepthCm, Double heightDisplacementCm,
@@ -59,6 +70,7 @@ public class AnalysisSessionResponse {
         response.avgConcentricVelocity = analysisSession.getAvgConcentricVelocity();
         response.estimatedRM = analysisSession.getEstimatedRM();
         response.weightKg = analysisSession.getWeightKg();
+        response.reps = analysisSession.getRepDetails().stream().map(RepResponse::from).toList();
         response.bodyWeightKg = analysisSession.getBodyWeightKg();
         response.heightCm = analysisSession.getHeightCm();
         response.totalJumps = analysisSession.getTotalJumps();
@@ -110,8 +122,12 @@ public class AnalysisSessionResponse {
         return estimatedRM;
     }
 
-    public Integer getWeightKg() {
+    public Double getWeightKg() {
         return weightKg;
+    }
+
+    public List<RepResponse> getReps() {
+        return reps;
     }
 
     public Double getBodyWeightKg() {

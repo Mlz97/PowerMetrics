@@ -98,6 +98,21 @@ public class VideoServiceTest {
     }
 
     @Test
+    void rejectsUploadWhenSessionIsNotWaiting() {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(1L);
+        session.setState(AnalysisSessionState.PROCESSING);
+        when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> videoService.saveVideo(1L, file, AnalysisParameters.empty()));
+
+        assertEquals("No se pueden subir videos cuando la sesión está en estado PROCESSING", ex.getMessage());
+        verify(storageService, never()).store(any());
+    }
+
+    @Test
     void saveJumpVideoStoresJumpParameters() {
         Long sessionId = 2L;
         MockMultipartFile file = new MockMultipartFile("file", "jump.mp4", "video/mp4", "content".getBytes());
@@ -116,6 +131,21 @@ public class VideoServiceTest {
         assertEquals(180.0, session.getHeightCm());
         assertEquals(AnalysisSessionState.PROCESSING, session.getState());
         verify(analysisRunner).analyze(sessionId, "uploads/jump.mp4", ExerciseType.VERTICAL_JUMP, params);
+    }
+
+    @Test
+    void saveSquatVideoKeepsDecimalWeight() {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(3L);
+
+        when(analysisSessionRepository.findById(3L)).thenReturn(Optional.of(session));
+        when(storageService.store(file)).thenReturn("uploads/video.mp4");
+        when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        videoService.saveVideo(3L, file, new AnalysisParameters(102.5, null, null));
+
+        assertEquals(102.5, session.getWeightKg());
     }
 
     @Test
