@@ -17,6 +17,9 @@ interface ApiService {
     @POST("session")
     suspend fun createSession(@Body request: CreateSessionRequest): AnalysisSession
 
+    @GET("session")
+    suspend fun listSessions(): List<AnalysisSession>
+
     @GET("session/{id}")
     suspend fun getSession(@Path("id") id: Long): AnalysisSession
 

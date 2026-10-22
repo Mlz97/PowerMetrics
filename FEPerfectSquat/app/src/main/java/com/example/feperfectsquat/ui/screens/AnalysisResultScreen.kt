@@ -122,7 +122,7 @@ fun AnalysisResultScreen(
                             MetricRow("Repeticiones válidas", "${result.validReps ?: 0} / ${result.totalReps ?: 0}")
 
                             result.avgConcentricVelocity?.let {
-                                MetricRow("Velocidad concéntrica media", String.format("%.2f m/s", it))
+                                MetricRow("Velocidad concéntrica media", String.format("%.2f 1/s", it))
                             }
 
                             result.estimatedRM?.let {
@@ -130,7 +130,7 @@ fun AnalysisResultScreen(
                             }
 
                             result.weightKg?.let {
-                                MetricRow("Peso utilizado", "$it kg")
+                                MetricRow("Peso utilizado", String.format("%.1f kg", it))
                             }
                         }
 
@@ -173,6 +173,25 @@ fun AnalysisResultScreen(
                                     "Salto ${jump.jumpNumber}",
                                     String.format("%.1f cm · %.2f s", jump.heightFlightCm ?: 0.0, jump.flightTime ?: 0.0) + depth
                                 )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                if (!isJump && !result.reps.isNullOrEmpty()) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Repeticiones",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            result.reps.forEach { rep ->
+                                val validity = if (rep.valid) "válida" else "no válida"
+                                val knee = rep.minKneeAngle?.let { String.format(" · rodilla %.0f°", it) } ?: ""
+                                MetricRow("Repetición ${rep.repNumber}", validity + knee)
                             }
                         }
                     }

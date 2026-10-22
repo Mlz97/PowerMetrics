@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -21,12 +23,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.JumpDetail;
+import com.BEPerfectSquat.BEPerfectSquat.domain.entity.RepDetail;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.AnalysisSessionService;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageException;
 
 @WebMvcTest(AnalysisSessionController.class)
 class AnalysisSessionControllerTest {
@@ -126,6 +130,42 @@ class AnalysisSessionControllerTest {
     }
 
     @Test
+    void uploadVideoOnNonWaitingSessionReturnsConflictWithCause() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), any(), any()))
+                .thenThrow(new IllegalStateException("No se pueden subir videos cuando la sesión está en estado FINISHED"));
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("INVALID_STATE"))
+                .andExpect(jsonPath("$.message").value("No se pueden subir videos cuando la sesión está en estado FINISHED"));
+    }
+
+    @Test
+    void uploadVideoBadArgumentReturnsItsMessage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), any(), any()))
+                .thenThrow(new IllegalArgumentException("El archivo de vídeo está vacío"));
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("El archivo de vídeo está vacío"));
+    }
+
+    @Test
+    void uploadVideoStorageFailureReturnsStorageError() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), any(), any()))
+                .thenThrow(new StorageException("Fallo al guardar el archivo."));
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("STORAGE_ERROR"))
+                .andExpect(jsonPath("$.message").value("Fallo al guardar el archivo."));
+    }
+
+    @Test
     void getJumpSessionReturnsJumpMetrics() throws Exception {
         AnalysisSession session = session(ExerciseType.VERTICAL_JUMP, AnalysisSessionState.FINISHED);
         session.setBodyWeightKg(80.0);
@@ -151,5 +191,54 @@ class AnalysisSessionControllerTest {
                 .andExpect(jsonPath("$.bestJumpHeightCm").value(30.66))
                 .andExpect(jsonPath("$.jumps[0].jumpNumber").value(1))
                 .andExpect(jsonPath("$.jumps[0].heightFlightCm").value(30.66));
+    }
+
+    @Test
+    void listSessionsReturnsAllSessionsInServiceOrder() throws Exception {
+        AnalysisSession jump = session(ExerciseType.VERTICAL_JUMP, AnalysisSessionState.FINISHED);
+        jump.setId(2L);
+        AnalysisSession squat = session(ExerciseType.SQUAT, AnalysisSessionState.ERROR);
+        when(analysisSessionService.listSessions()).thenReturn(List.of(jump, squat));
+
+        mockMvc.perform(get("/session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(2))
+                .andExpect(jsonPath("$[0].exerciseType").value("VERTICAL_JUMP"))
+                .andExpect(jsonPath("$[1].id").value(1))
+                .andExpect(jsonPath("$[1].state").value("ERROR"));
+    }
+
+    @Test
+    void listSessionsWithoutSessionsReturnsEmptyArray() throws Exception {
+        when(analysisSessionService.listSessions()).thenReturn(List.of());
+
+        mockMvc.perform(get("/session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void getSquatSessionReturnsRepDetailsAndDecimalWeight() throws Exception {
+        AnalysisSession session = session(ExerciseType.SQUAT, AnalysisSessionState.FINISHED);
+        session.setWeightKg(102.5);
+        session.setTotalReps(1);
+        RepDetail rep = new RepDetail();
+        rep.setRepNumber(1);
+        rep.setValid(true);
+        rep.setMinHipAngle(70.0);
+        rep.setMinKneeAngle(65.0);
+        rep.setConcentricVelocity(0.8);
+        session.getRepDetails().add(rep);
+        when(analysisSessionService.getSessionById(1L)).thenReturn(session);
+
+        mockMvc.perform(get("/session/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weightKg").value(102.5))
+                .andExpect(jsonPath("$.reps[0].repNumber").value(1))
+                .andExpect(jsonPath("$.reps[0].valid").value(true))
+                .andExpect(jsonPath("$.reps[0].minHipAngle").value(70.0))
+                .andExpect(jsonPath("$.reps[0].minKneeAngle").value(65.0))
+                .andExpect(jsonPath("$.reps[0].concentricVelocity").value(0.8));
     }
 }
