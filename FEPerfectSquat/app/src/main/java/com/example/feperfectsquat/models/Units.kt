@@ -17,3 +17,9 @@ fun formatWeightNumber(kg: Double, unit: WeightUnit): String = when (unit) {
 }
 
 fun formatWeight(kg: Double, unit: WeightUnit): String = "${formatWeightNumber(kg, unit)} ${unit.label}"
+
+/** Bodyweight with one decimal in either unit, so each 0.5 kg step stays visible in lb. */
+fun formatBodyWeight(kg: Double, unit: WeightUnit): String = when (unit) {
+    WeightUnit.KG -> formatWeight(kg, unit)
+    WeightUnit.LB -> String.format(Locale.US, "%.1f lb", kg * LB_PER_KG)
+}

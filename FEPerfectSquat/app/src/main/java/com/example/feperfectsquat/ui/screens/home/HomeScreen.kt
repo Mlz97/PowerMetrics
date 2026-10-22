@@ -27,6 +27,7 @@ import com.example.feperfectsquat.models.ExerciseType
 import com.example.feperfectsquat.models.HomeStats
 import com.example.feperfectsquat.models.UserProfile
 import com.example.feperfectsquat.models.flightTimeMs
+import com.example.feperfectsquat.models.formatBodyWeight
 import com.example.feperfectsquat.models.formatWeight
 import com.example.feperfectsquat.models.formatWeightNumber
 import com.example.feperfectsquat.models.isJump
@@ -212,7 +213,7 @@ private fun squatTiles(stats: HomeStats, profile: UserProfile): List<Tile> {
             "Relative 1RM",
             s.best1RmKg?.let { "%.2f".format(Locale.US, it / profile.bodyWeightKg) } ?: NO_DATA,
             "×BW",
-            "at ${formatWeight(profile.bodyWeightKg, profile.unit)}",
+            "at ${formatBodyWeight(profile.bodyWeightKg, profile.unit)}",
             PmTextMuted
         ),
     )
@@ -232,7 +233,7 @@ private fun jumpTiles(stats: HomeStats, profile: UserProfile): List<Tile> {
             "Relative power",
             j.bestPeakPowerW?.let { "%.1f".format(Locale.US, it / profile.bodyWeightKg) } ?: NO_DATA,
             "W/kg",
-            "at ${formatWeight(profile.bodyWeightKg, profile.unit)}",
+            "at ${formatBodyWeight(profile.bodyWeightKg, profile.unit)}",
             PmTextMuted
         ),
     )

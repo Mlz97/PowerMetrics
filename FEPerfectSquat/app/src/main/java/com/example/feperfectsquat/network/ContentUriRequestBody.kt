@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.net.Uri
 import okhttp3.MediaType
 import okhttp3.RequestBody
+import okio.Buffer
 import okio.BufferedSink
 import okio.buffer
 import okio.source
@@ -31,6 +32,9 @@ class ContentUriRequestBody(
         val inputStream = contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("Could not open the video")
         val total = contentLength()
+        // HttpLoggingInterceptor first copies the multipart into an in-memory Buffer to log it;
+        // only the real network write counts as upload progress
+        val reportProgress = sink !is Buffer
         inputStream.source().buffer().use { source ->
             var sent = 0L
             while (true) {
@@ -38,7 +42,7 @@ class ContentUriRequestBody(
                 if (read == -1L) break
                 sink.emit()
                 sent += read
-                if (total > 0) onProgress((sent.toFloat() / total).coerceAtMost(1f))
+                if (reportProgress && total > 0) onProgress((sent.toFloat() / total).coerceAtMost(1f))
             }
         }
     }

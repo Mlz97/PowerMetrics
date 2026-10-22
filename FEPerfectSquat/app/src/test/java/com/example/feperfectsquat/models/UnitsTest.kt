@@ -20,6 +20,14 @@ class UnitsTest {
     }
 
     @Test
+    fun bodyweightInPoundsKeepsHalfKiloSteps() {
+        // 82 kg = 180.8 lb, 82.5 kg = 181.9 lb: every 0.5 kg step must change the label
+        assertEquals("180.8 lb", formatBodyWeight(82.0, WeightUnit.LB))
+        assertEquals("181.9 lb", formatBodyWeight(82.5, WeightUnit.LB))
+        assertEquals("82.5 kg", formatBodyWeight(82.5, WeightUnit.KG))
+    }
+
+    @Test
     fun numberWithoutUnitFollowsTheSameRounding() {
         assertEquals("150", formatWeightNumber(150.0, WeightUnit.KG))
         assertEquals("330", formatWeightNumber(150.0, WeightUnit.LB))

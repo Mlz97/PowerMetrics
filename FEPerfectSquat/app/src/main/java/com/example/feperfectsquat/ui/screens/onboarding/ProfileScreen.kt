@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.example.feperfectsquat.models.ProfileDraft
 import com.example.feperfectsquat.models.Sex
 import com.example.feperfectsquat.models.WeightUnit
-import com.example.feperfectsquat.models.formatWeight
+import com.example.feperfectsquat.models.formatBodyWeight
 import com.example.feperfectsquat.ui.components.PmPrimaryButton
 import com.example.feperfectsquat.ui.components.PmSegmented
 import com.example.feperfectsquat.ui.components.PmStepper
@@ -150,7 +150,7 @@ fun ProfileScreen(
 
             FieldLabel("Bodyweight", top = 20.dp)
             PmStepper(
-                value = formatWeight(draft.bodyWeightKg, draft.unit),
+                value = formatBodyWeight(draft.bodyWeightKg, draft.unit),
                 onMinus = { onDraftChange { it.withBodyWeight(-0.5) } },
                 onPlus = { onDraftChange { it.withBodyWeight(0.5) } },
                 label = "bodyweight",
