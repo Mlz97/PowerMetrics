@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.feperfectsquat.ui.screens.*
 import com.example.feperfectsquat.ui.viewmodels.MainViewModel
+import com.example.feperfectsquat.ui.viewmodels.SessionsViewModel
 
 object NavDestinations {
     const val MAIN_MENU = "main_menu"
@@ -20,6 +21,7 @@ object NavDestinations {
 fun AppNavigation() {
     val navController = rememberNavController()
     val mainViewModel: MainViewModel = viewModel()
+    val sessionsViewModel: SessionsViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = NavDestinations.MAIN_MENU) {
         composable(NavDestinations.MAIN_MENU) {
@@ -52,11 +54,13 @@ fun AppNavigation() {
         }
         composable(NavDestinations.HISTORY) {
             HistoryScreen(
+                viewModel = sessionsViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(NavDestinations.STATISTICS) {
             StatisticsScreen(
+                viewModel = sessionsViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
