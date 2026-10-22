@@ -29,15 +29,15 @@ public class StorageService {
                 Files.createDirectories(rootLocation);
             }
         } catch (IOException e) {
-            throw new RuntimeException("No se pudo crear el directorio de subida de archivos", e);
+            throw new StorageException("No se pudo crear el directorio de subida de archivos", e);
         }
     }
 
     public String store(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("El archivo de vídeo está vacío");
+        }
         try {
-            if (file.isEmpty()) {
-                throw new RuntimeException("Fallo al guardar archivo vacío.");
-            }
             // nombre de archivo único
             String originalFilename = file.getOriginalFilename();
             String extension = "";
@@ -51,7 +51,7 @@ public class StorageService {
 
             if (!destinationFile.getParent().equals(rootLocation.toAbsolutePath())) {
                 // Validación path traversal attacks
-                throw new RuntimeException("No se puede guardar el archivo fuera del directorio actual.");
+                throw new StorageException("No se puede guardar el archivo fuera del directorio actual.");
             }
 
             try (InputStream inputStream = file.getInputStream()) {
@@ -60,21 +60,20 @@ public class StorageService {
 
             return destinationFile.toString();
         } catch (IOException e) {
-            throw new RuntimeException("Fallo al guardar el archivo.", e);
+            throw new StorageException("Fallo al guardar el archivo.", e);
         }
     }
 
     public Resource loadAsResource(String filePath) {
+        Resource resource;
         try {
-            Path file = Paths.get(filePath);
-            Resource resource = new UrlResource(file.toUri());
-            if (resource.exists() && resource.isReadable()) {
-                return resource;
-            } else {
-                throw new RuntimeException("No se pudo leer el archivo: " + filePath);
-            }
+            resource = new UrlResource(Paths.get(filePath).toUri());
         } catch (Exception e) {
-            throw new RuntimeException("No se pudo cargar el archivo: " + filePath, e);
+            throw new StorageException("No se pudo cargar el archivo: " + filePath, e);
         }
+        if (!resource.exists() || !resource.isReadable()) {
+            throw new StorageException("No se pudo leer el archivo: " + filePath);
+        }
+        return resource;
     }
 }
