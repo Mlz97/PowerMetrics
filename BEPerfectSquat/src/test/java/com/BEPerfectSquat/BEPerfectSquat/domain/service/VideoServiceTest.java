@@ -21,8 +21,7 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.VideoRepository;
-import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.AnalysisClient;
-import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse;
+import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,10 +36,7 @@ public class VideoServiceTest {
     private StorageService storageService;
 
     @Mock
-    private AnalysisClient analysisClient;
-
-    @Mock
-    private AnalysisSessionService analysisSessionService;
+    private AnalysisRunner analysisRunner;
 
     @InjectMocks
     private VideoService videoService;
@@ -67,10 +63,6 @@ public class VideoServiceTest {
         when(videoRepository.save(any(Video.class)))
                 .thenReturn(saveVideo);
 
-        PythonAnalysisResponse response = new PythonAnalysisResponse();
-        when(analysisClient.analyzeVideo(sessionId, "uploads/video.mp4", weightKg))
-                .thenReturn(response);
-
         // WHEN
         Video result = videoService.saveVideo(sessionId, file, weightKg);
 
@@ -81,7 +73,8 @@ public class VideoServiceTest {
         verify(storageService).store(file);
         verify(analysisSessionRepository).save(session);
         verify(videoRepository).save(any(Video.class));
-        verify(analysisSessionService).updateSessionWithResults(sessionId, response);
+        assertEquals(AnalysisSessionState.PROCESSING, session.getState());
+        verify(analysisRunner).analyze(sessionId, "uploads/video.mp4", weightKg);
     }
 
     @Test

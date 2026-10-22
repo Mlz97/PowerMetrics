@@ -3,6 +3,7 @@ import mediapipe as mp
 import numpy as np
 import math
 from models import PythonRepDetail, PythonAnalysisResponse
+from services.depth import DepthTracker
 
 class SquatAnalyzer:
     def __init__(self, session_id: int, video_path: str, weight_kg: float = None):
@@ -23,6 +24,7 @@ class SquatAnalyzer:
         self.current_min_knee_angle = 180.0
         self.current_min_hip_angle = 180.0
         self.is_current_rep_valid = False
+        self.depth_tracker = DepthTracker(min_frames=2)
         
         # prueba track velocidad (pixel/segundo)
         self.fps = 30
@@ -145,8 +147,8 @@ class SquatAnalyzer:
                             if self.frames_in_ascent >= min_ascent_frames:
                                 self.rep_count += 1
                                 
-                                # Validacion profundidad
-                                if self.current_min_knee_angle <= 90.0:
+                                # Validacion profundidad: la cadera debe romper la paralela de la rodilla
+                                if self.depth_tracker.depth_reached:
                                     self.is_current_rep_valid = True
                                     self.valid_reps += 1
                                     
@@ -167,6 +169,7 @@ class SquatAnalyzer:
                             self.current_min_knee_angle = 180.0
                             self.current_min_hip_angle = 180.0
                             self.is_current_rep_valid = False
+                            self.depth_tracker.reset()
                             self.frames_in_ascent = 0
                             
                         self.state = "STANDING"
@@ -174,6 +177,8 @@ class SquatAnalyzer:
                     if knee_angle < 150:
                         if self.state == "STANDING":
                             self.state = "DESCENDING"
+
+                        self.depth_tracker.update(hip_y=hip[1], knee_y=knee[1])
                             
                         if self.state == "DESCENDING":
                             # Track minimos
