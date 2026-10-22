@@ -1,9 +1,14 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import logging
 import math
 from models import PythonRepDetail, PythonAnalysisResponse
 from services.depth import DepthTracker
+from services.frame_errors import FrameErrorLog
+from services.video_paths import analyzed_output_path
+
+logger = logging.getLogger(__name__)
 
 class SquatAnalyzer:
     def __init__(self, session_id: int, video_path: str, weight_kg: float = None):
@@ -58,7 +63,7 @@ class SquatAnalyzer:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
         # Preparar grabacion de archivo de salida
-        out_path = self.video_path.replace(".mp4", "_analyzed.mp4")
+        out_path = analyzed_output_path(self.video_path)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(out_path, fourcc, self.fps, (width, height))
 
@@ -68,11 +73,15 @@ class SquatAnalyzer:
         self.smoothed_knee_angle = 180.0
         self.smoothed_hip_angle = 180.0
 
+        frame_errors = FrameErrorLog(logger)
+        frame_index = 0
+
         with self.mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
+                frame_index += 1
                 
                 # Recolor  RGB
                 image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -204,8 +213,7 @@ class SquatAnalyzer:
 
 
                 except Exception as e:
-                    # No imprimir nada para evitar que Uvicorn colapse la tubería (WinError 233)
-                    pass
+                    frame_errors.record(frame_index, e)
                 
                 # Render detections
                 self.mp_drawing.draw_landmarks(image, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS)
@@ -213,6 +221,7 @@ class SquatAnalyzer:
                 out.write(image)
 
         cap.release()
+        frame_errors.log_summary(frame_index)
         out.release()
         
         avg_velocity = (total_velocity / self.rep_count) if self.rep_count > 0 else 0.0

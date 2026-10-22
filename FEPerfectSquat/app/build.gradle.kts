@@ -22,7 +22,15 @@ android {
     }
 
     buildTypes {
+        // Backend URL per variant; 10.0.2.2 is the host machine seen from the Android emulator
+        val emulatorBaseUrl = "http://10.0.2.2:8080/"
+        debug {
+            val baseUrl = providers.gradleProperty("debugBaseUrl").getOrElse(emulatorBaseUrl)
+            buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        }
         release {
+            val baseUrl = providers.gradleProperty("releaseBaseUrl").getOrElse(emulatorBaseUrl)
+            buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -36,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

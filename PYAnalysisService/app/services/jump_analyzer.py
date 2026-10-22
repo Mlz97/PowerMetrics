@@ -5,6 +5,7 @@ import mediapipe as mp
 
 from models import PythonAnalysisResponse, PythonJumpDetail
 from services.jump_metrics import FrameSample, analyze_jumps, is_low_fps, resolve_fps
+from services.video_paths import analyzed_output_path
 
 MIN_LEG_VISIBILITY = 0.3
 MIN_FOOT_VISIBILITY = 0.5
@@ -68,7 +69,7 @@ class JumpAnalyzer:
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        out_path = self.video_path.replace(".mp4", "_analyzed.mp4")
+        out_path = analyzed_output_path(self.video_path)
         out = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
 
         frames = []
