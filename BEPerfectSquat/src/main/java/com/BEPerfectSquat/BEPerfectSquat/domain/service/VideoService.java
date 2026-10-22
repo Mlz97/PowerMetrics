@@ -9,6 +9,7 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
+import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.VideoRepository;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
@@ -30,7 +31,7 @@ public class VideoService {
         this.analysisRunner = analysisRunner;
     }
 
-    public Video saveVideo(Long sessionId, MultipartFile file, Double weightKg) {
+    public Video saveVideo(Long sessionId, MultipartFile file, AnalysisParameters parameters) {
         AnalysisSession session = analysisSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new AnalysisSessionNotFoundException(sessionId));
                 
@@ -39,14 +40,18 @@ public class VideoService {
                     "No se pueden subir videos cuando la sesión está en estado " + session.getState());
         }
 
+        parameters.validate();
+
         // Storage local
         String localFilePath = storageService.store(file);
 
         //Processing y guardar Video
         session.setState(AnalysisSessionState.PROCESSING);
-        if (weightKg != null) {
-            session.setWeightKg(weightKg.intValue());
+        if (parameters.weightKg() != null) {
+            session.setWeightKg(parameters.weightKg().intValue());
         }
+        session.setBodyWeightKg(parameters.bodyWeightKg());
+        session.setHeightCm(parameters.heightCm());
         analysisSessionRepository.save(session);
 
         Video newVideo = new Video();
@@ -57,7 +62,7 @@ public class VideoService {
         Video savedVideo = videoRepository.save(newVideo);
 
         // Análisis en segundo plano: la sesión pasa a FINISHED o ERROR al terminar
-        analysisRunner.analyze(sessionId, localFilePath, weightKg);
+        analysisRunner.analyze(sessionId, localFilePath, session.getExerciseType(), parameters);
 
         return savedVideo;
     }

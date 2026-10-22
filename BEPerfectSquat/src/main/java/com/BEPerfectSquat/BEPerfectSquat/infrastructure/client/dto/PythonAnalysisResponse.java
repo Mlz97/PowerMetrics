@@ -11,6 +11,14 @@ public class PythonAnalysisResponse {
     private Double averageConcentricVelocity;
     private Double estimatedRM;
     private Double fatigueIndex;
+    private String exerciseType;
+    private Double videoFps;
+    private Boolean lowFpsWarning;
+    private Integer totalJumps;
+    private List<PythonJumpDetail> jumps;
+    private Double bestJumpHeightCm;
+    private Double avgJumpHeightCm;
+    private Double peakPowerW;
 
     public Long getSessionId() {
         return sessionId;
@@ -76,4 +84,67 @@ public class PythonAnalysisResponse {
         this.fatigueIndex = fatigueIndex;
     }
 
+    public String getExerciseType() {
+        return exerciseType;
+    }
+
+    public void setExerciseType(String exerciseType) {
+        this.exerciseType = exerciseType;
+    }
+
+    public Double getVideoFps() {
+        return videoFps;
+    }
+
+    public void setVideoFps(Double videoFps) {
+        this.videoFps = videoFps;
+    }
+
+    public Boolean getLowFpsWarning() {
+        return lowFpsWarning;
+    }
+
+    public void setLowFpsWarning(Boolean lowFpsWarning) {
+        this.lowFpsWarning = lowFpsWarning;
+    }
+
+    public Integer getTotalJumps() {
+        return totalJumps;
+    }
+
+    public void setTotalJumps(Integer totalJumps) {
+        this.totalJumps = totalJumps;
+    }
+
+    public List<PythonJumpDetail> getJumps() {
+        return jumps;
+    }
+
+    public void setJumps(List<PythonJumpDetail> jumps) {
+        this.jumps = jumps;
+    }
+
+    public Double getBestJumpHeightCm() {
+        return bestJumpHeightCm;
+    }
+
+    public void setBestJumpHeightCm(Double bestJumpHeightCm) {
+        this.bestJumpHeightCm = bestJumpHeightCm;
+    }
+
+    public Double getAvgJumpHeightCm() {
+        return avgJumpHeightCm;
+    }
+
+    public void setAvgJumpHeightCm(Double avgJumpHeightCm) {
+        this.avgJumpHeightCm = avgJumpHeightCm;
+    }
+
+    public Double getPeakPowerW() {
+        return peakPowerW;
+    }
+
+    public void setPeakPowerW(Double peakPowerW) {
+        this.peakPowerW = peakPowerW;
+    }
 }

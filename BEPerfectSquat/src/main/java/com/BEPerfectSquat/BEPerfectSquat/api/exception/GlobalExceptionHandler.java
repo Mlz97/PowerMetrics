@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.BEPerfectSquat.BEPerfectSquat.api.dto.response.ErrorResponse;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
+import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -25,6 +26,17 @@ public class GlobalExceptionHandler {
             LocalDateTime.now()
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(InvalidAnalysisParametersException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidParameters(InvalidAnalysisParametersException ex){
+        ErrorResponse response = new ErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            "INVALID_PARAMETERS",
+            ex.getMessage(),
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
