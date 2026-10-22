@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
+import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
 
 import jakarta.persistence.*;
 
@@ -19,11 +20,18 @@ public class AnalysisSession {
     @Enumerated(EnumType.STRING)
     private AnalysisSessionState state = AnalysisSessionState.WAITING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "exercise_type")
+    private ExerciseType exerciseType = ExerciseType.SQUAT;
+
     @OneToOne(mappedBy = "session", cascade = CascadeType.ALL)
     private Video video;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RepDetail> repDetails = new ArrayList<>();
+
+    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<JumpDetail> jumpDetails = new ArrayList<>();
 
     private LocalDateTime createdAt;
 
@@ -45,7 +53,31 @@ public class AnalysisSession {
     private Double avgConcentricVelocity;
 
     @Column(name = "weight_kg")
-    private Integer weightKg;
+    private Double weightKg;
+
+    @Column(name = "body_weight_kg")
+    private Double bodyWeightKg;
+
+    @Column(name = "height_cm")
+    private Double heightCm;
+
+    @Column(name = "video_fps")
+    private Double videoFps;
+
+    @Column(name = "low_fps_warning")
+    private Boolean lowFpsWarning;
+
+    @Column(name = "total_jumps")
+    private Integer totalJumps;
+
+    @Column(name = "best_jump_height_cm")
+    private Double bestJumpHeightCm;
+
+    @Column(name = "avg_jump_height_cm")
+    private Double avgJumpHeightCm;
+
+    @Column(name = "peak_power_w")
+    private Double peakPowerW;
 
     public Long getId() {
         return id;
@@ -127,11 +159,11 @@ public class AnalysisSession {
         this.avgConcentricVelocity = avgConcentricVelocity;
     }
 
-    public Integer getWeightKg() {
+    public Double getWeightKg() {
         return weightKg;
     }
 
-    public void setWeightKg(Integer weightKg) {
+    public void setWeightKg(Double weightKg) {
         this.weightKg = weightKg;
     }
 
@@ -143,4 +175,83 @@ public class AnalysisSession {
         this.repDetails = repDetails;
     }
 
+    public ExerciseType getExerciseType() {
+        return exerciseType;
+    }
+
+    public void setExerciseType(ExerciseType exerciseType) {
+        this.exerciseType = exerciseType;
+    }
+
+    public List<JumpDetail> getJumpDetails() {
+        return jumpDetails;
+    }
+
+    public void setJumpDetails(List<JumpDetail> jumpDetails) {
+        this.jumpDetails = jumpDetails;
+    }
+
+    public Double getBodyWeightKg() {
+        return bodyWeightKg;
+    }
+
+    public void setBodyWeightKg(Double bodyWeightKg) {
+        this.bodyWeightKg = bodyWeightKg;
+    }
+
+    public Double getHeightCm() {
+        return heightCm;
+    }
+
+    public void setHeightCm(Double heightCm) {
+        this.heightCm = heightCm;
+    }
+
+    public Double getVideoFps() {
+        return videoFps;
+    }
+
+    public void setVideoFps(Double videoFps) {
+        this.videoFps = videoFps;
+    }
+
+    public Boolean getLowFpsWarning() {
+        return lowFpsWarning;
+    }
+
+    public void setLowFpsWarning(Boolean lowFpsWarning) {
+        this.lowFpsWarning = lowFpsWarning;
+    }
+
+    public Integer getTotalJumps() {
+        return totalJumps;
+    }
+
+    public void setTotalJumps(Integer totalJumps) {
+        this.totalJumps = totalJumps;
+    }
+
+    public Double getBestJumpHeightCm() {
+        return bestJumpHeightCm;
+    }
+
+    public void setBestJumpHeightCm(Double bestJumpHeightCm) {
+        this.bestJumpHeightCm = bestJumpHeightCm;
+    }
+
+    public Double getAvgJumpHeightCm() {
+        return avgJumpHeightCm;
+    }
+
+    public void setAvgJumpHeightCm(Double avgJumpHeightCm) {
+        this.avgJumpHeightCm = avgJumpHeightCm;
+    }
+
+    public Double getPeakPowerW() {
+        return peakPowerW;
+    }
+
+    public void setPeakPowerW(Double peakPowerW) {
+        this.peakPowerW = peakPowerW;
+    }
 }
