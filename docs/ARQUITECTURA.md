@@ -146,15 +146,19 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 
 ## App Android (`FEPerfectSquat`)
 
+La interfaz sigue el diseño "PowerMetrics 1B" de Claude Design (tema oscuro, acento naranja, textos en inglés).
+
 | Pieza | Fichero | Notas |
 |---|---|---|
-| Navegación | `ui/navigation/AppNavigation.kt` | Menú, Iniciar análisis, Resultado, Histórico, Estadísticas |
-| Estado | `ui/viewmodels/MainViewModel.kt` | Crea la sesión, sube el vídeo, hace polling y descarga el resultado |
+| Navegación | `ui/navigation/AppNavigation.kt` | Welcome → Profile la primera vez; después la app con pestañas Home / Analyze / Historic / Community (`ui/screens/AppShell.kt`) |
+| Onboarding | `ui/screens/onboarding/`, `ui/viewmodels/ProfileViewModel.kt`, `data/ProfileRepository.kt` | Carrusel de 3 slides y perfil (nombre, edad, sexo, peso, altura, kg/lb) guardado en `SharedPreferences`. La altura no está en el diseño: el salto la necesita para la escala |
+| Tema | `ui/theme/`, `ui/components/PmComponents.kt` | Tokens de color del diseño y componentes compartidos. Las fuentes Archivo y JetBrains Mono se sustituyen por sans y monospace del sistema |
+| Home | `ui/screens/home/HomeScreen.kt`, `models/HomeStats.kt` | Mejores marcas de los últimos 30 días comparadas con las anteriores. La velocidad se muestra en 1/s (normalizada por el backend), no en m/s |
+| Analyze | `ui/screens/analyze/`, `ui/viewmodels/MainViewModel.kt`, `models/ResultSummary.kt` | Crea la sesión, sube el vídeo con progreso, hace polling y descarga el vídeo con el esqueleto. El salto usa peso y altura del perfil; si el vídeo va por debajo de 60 fps se avisa al subirlo y en el resultado |
+| Historic | `ui/screens/history/HistoryScreen.kt`, `ui/viewmodels/SessionsViewModel.kt` | `GET /session`: gráfico de las últimas 8 sesiones (1RM estimado o mejor salto) y lista de sesiones `FINISHED` |
+| Community | `ui/screens/community/CommunityScreen.kt`, `data/CommunityRepository.kt`, `models/Community.kt` | **Datos de ejemplo** (`SampleCommunityRepository`) marcados en pantalla: el backend aún no tiene usuarios ni rankings |
 | Red | `network/ApiService.kt`, `network/RetrofitClient.kt`, `network/ContentUriRequestBody.kt` | `BuildConfig.BASE_URL` por build type (por defecto `http://10.0.2.2:8080/`, emulador → localhost; se cambia con `-PdebugBaseUrl=` / `-PreleaseBaseUrl=`). El vídeo se sube en streaming desde el `ContentResolver` |
-| Histórico / Estadísticas | `ui/screens/HistoryScreen.kt`, `ui/screens/StatisticsScreen.kt`, `ui/viewmodels/SessionsViewModel.kt`, `models/SessionStats.kt` | Cargan `GET /session`; las estadísticas solo cuentan sesiones `FINISHED` |
-| Inicio | `ui/screens/StartAnalysisScreen.kt` | Selector Sentadilla / Salto. El salto pide peso corporal y altura (obligatorios) y muestra el aviso de 60 fps |
-| FPS | `video/VideoFps.kt` | Lee los FPS del vídeo elegido con `MediaExtractor` para avisar antes de subirlo |
-| Resultado | `ui/screens/AnalysisResultScreen.kt` | Métricas según el ejercicio, lista de saltos y aviso si el vídeo iba por debajo de 60 fps |
+| FPS | `video/VideoFps.kt` | Lee los FPS del vídeo elegido con `MediaExtractor` |
 
 
 ## Cómo ejecutarlo en local

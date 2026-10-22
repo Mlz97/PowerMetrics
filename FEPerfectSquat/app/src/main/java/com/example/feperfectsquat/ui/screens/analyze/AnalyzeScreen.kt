@@ -233,6 +233,12 @@ private fun ProcessingCard(state: MainViewModel.UiState) {
         if (state.stage == AnalysisStage.ANALYZING) {
             Text("This can take a minute. You can keep the app open while we work.", fontSize = 13.sp, color = PmTextMuted)
         }
+        state.videoFps?.takeIf { it < MIN_RECOMMENDED_FPS }?.let { fps ->
+            Text(
+                "This video is ${fps.roundToInt()} fps: jump height may be off by a few centimetres. Record at ${MIN_RECOMMENDED_FPS.toInt()} fps or more.",
+                fontSize = 13.sp, color = PmAccentLight
+            )
+        }
     }
 }
 

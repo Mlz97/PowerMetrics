@@ -10,6 +10,7 @@ import com.example.feperfectsquat.models.CreateSessionRequest
 import com.example.feperfectsquat.models.ExerciseType
 import com.example.feperfectsquat.network.ContentUriRequestBody
 import com.example.feperfectsquat.network.RetrofitClient
+import com.example.feperfectsquat.video.readVideoFps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,6 +46,8 @@ class MainViewModel : ViewModel() {
         val fileName: String = "",
         /** Upload fraction (0..1); null while the stage has no measurable progress. */
         val uploadProgress: Float? = null,
+        /** Frame rate of the chosen jump video, read before uploading so a low value can be flagged early. */
+        val videoFps: Float? = null,
         val analysisResult: AnalysisSession? = null,
         val processedVideoUri: Uri? = null,
         val errorMessage: String? = null,
@@ -70,6 +73,10 @@ class MainViewModel : ViewModel() {
                 uploadProgress = 0f
             )
             try {
+                if (exerciseType == ExerciseType.VERTICAL_JUMP) {
+                    val fps = withContext(Dispatchers.IO) { readVideoFps(context, videoUri) }
+                    _uiState.update { it.copy(videoFps = fps) }
+                }
                 val session = apiService.createSession(CreateSessionRequest(exerciseType))
                 val filePart = prepareVideoPart(context, videoUri)
                 // The backend answers 202 and analyzes in the background
