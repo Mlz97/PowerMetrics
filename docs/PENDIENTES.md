@@ -11,10 +11,7 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 - [x] **Compilar la app**: `./gradlew assembleDebug testDebugUnitTest` en verde sobre `feat/vertical-jump` (incluye el polling de `MainViewModel`).
 - [ ] **Prueba de punta a punta** con MediaPipe instalado: subir un vídeo real y comprobar que la sesión termina en `FINISHED` y la regla de profundidad da resultados razonables.
 - [ ] **Versión de Python del servicio.** El equipo tiene Python 3.14; verificar que `mediapipe==0.10.14` tiene wheels para esa versión o usar un venv con una versión compatible.
-- [ ] **Tests del backend en JDK 25.** Hoy necesitan `-DargLine=-Dnet.bytebuddy.experimental=true`. Opciones:
-  - usar JDK 17 o 21, que es lo que pide el proyecto;
-  - subir Spring Boot o Mockito a versiones que soporten JDK 25;
-  - fijar el flag en el `argLine` de surefire en el `pom.xml`.
+- [x] **Tests del backend en JDK 25.** `byte-buddy.version` fijado a 1.17.6 en el `pom.xml` (la 1.15.11 que trae Spring Boot 3.4 rechaza JDK 25); `./mvnw test` pasa sin flags.
 
 ## Prioridad media: funcionalidad y calidad de las métricas
 
