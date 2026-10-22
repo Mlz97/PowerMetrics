@@ -2,9 +2,6 @@ package com.example.feperfectsquat.ui.navigation
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -14,8 +11,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -32,12 +27,12 @@ import com.example.feperfectsquat.ui.screens.AppShell
 import com.example.feperfectsquat.ui.screens.AppTab
 import com.example.feperfectsquat.ui.screens.analyze.AnalyzeScreen
 import com.example.feperfectsquat.ui.screens.analyze.TrackedVideoDialog
+import com.example.feperfectsquat.ui.screens.community.CommunityScreen
 import com.example.feperfectsquat.ui.screens.history.HistoryScreen
 import com.example.feperfectsquat.ui.screens.home.CommunityTeaser
 import com.example.feperfectsquat.ui.screens.home.HomeScreen
 import com.example.feperfectsquat.ui.screens.onboarding.ProfileScreen
 import com.example.feperfectsquat.ui.screens.onboarding.WelcomeScreen
-import com.example.feperfectsquat.ui.theme.PmTextMuted
 import com.example.feperfectsquat.ui.viewmodels.MainViewModel
 import com.example.feperfectsquat.ui.viewmodels.ProfileViewModel
 import com.example.feperfectsquat.ui.viewmodels.SessionsViewModel
@@ -98,6 +93,8 @@ private fun AppTabs(
     var statsLift by rememberSaveable { mutableStateOf(ExerciseType.SQUAT) }
     var analyzeLift by rememberSaveable { mutableStateOf(ExerciseType.SQUAT) }
     var historyLift by rememberSaveable { mutableStateOf(ExerciseType.SQUAT) }
+    var communityLift by rememberSaveable { mutableStateOf(ExerciseType.SQUAT) }
+    var communityMetric by rememberSaveable { mutableStateOf(CommunityMetric.LOAD) }
     var loadKg by rememberSaveable { mutableDoubleStateOf(120.0) }
     var showTrackedVideo by rememberSaveable { mutableStateOf(false) }
 
@@ -136,7 +133,11 @@ private fun AppTabs(
                 onStatsLiftChange = { statsLift = it },
                 onAnalyze = { tab = AppTab.ANALYZE },
                 onHistory = { tab = AppTab.HISTORY },
-                onCommunity = { tab = AppTab.COMMUNITY },
+                onCommunity = {
+                    communityLift = ExerciseType.SQUAT
+                    communityMetric = CommunityMetric.LOAD
+                    tab = AppTab.COMMUNITY
+                },
             )
             AppTab.ANALYZE -> AnalyzeScreen(
                 state = analysisState,
@@ -164,9 +165,14 @@ private fun AppTabs(
                 profile = profile,
                 onRetry = sessionsViewModel::loadSessions,
             )
-            else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(current.label, color = PmTextMuted)
-            }
+            AppTab.COMMUNITY -> CommunityScreen(
+                repository = community,
+                profile = profile,
+                lift = communityLift,
+                metric = communityMetric,
+                onLiftChange = { communityLift = it; communityMetric = CommunityMetric.forLift(it).first() },
+                onMetricChange = { communityMetric = it },
+            )
         }
     }
 }

@@ -26,6 +26,21 @@ class CommunityRankingTest {
     }
 
     @Test
+    fun metricValuesAreFormattedWithTheirUnits() {
+        val jumper = CommunityEntry(name = "J", bodyWeightKg = 82.0, jumpHeightCm = 41.2)
+
+        assertEquals("200 kg", CommunityMetric.LOAD.format(heavy, WeightUnit.KG))
+        assertEquals("440 lb", CommunityMetric.LOAD.format(heavy, WeightUnit.LB))
+        assertEquals("2.00×BW", CommunityMetric.RELATIVE.format(heavy, WeightUnit.KG))
+        assertEquals("0.25 m/s", CommunityMetric.MEAN_VELOCITY.format(heavy, WeightUnit.KG))
+        assertEquals("2,000 W", CommunityMetric.POWER.format(heavy, WeightUnit.KG))
+        assertEquals("41.2 cm", CommunityMetric.HEIGHT.format(jumper, WeightUnit.KG))
+        assertEquals("4,160 W", CommunityMetric.JUMP_POWER.format(jumper, WeightUnit.KG))
+        assertEquals("50.7 W/kg", CommunityMetric.POWER_PER_KG.format(jumper, WeightUnit.KG))
+        assertEquals("580 ms", CommunityMetric.FLIGHT_TIME.format(jumper, WeightUnit.KG))
+    }
+
+    @Test
     fun eachLiftHasItsOwnMetricsWithTheFirstAsDefault() {
         assertEquals(CommunityMetric.LOAD, CommunityMetric.forLift(ExerciseType.SQUAT).first())
         assertEquals(CommunityMetric.HEIGHT, CommunityMetric.forLift(ExerciseType.VERTICAL_JUMP).first())

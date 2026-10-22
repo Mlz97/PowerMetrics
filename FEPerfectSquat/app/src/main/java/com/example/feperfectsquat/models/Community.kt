@@ -1,5 +1,8 @@
 package com.example.feperfectsquat.models
 
+import java.util.Locale
+import kotlin.math.roundToInt
+
 /** One athlete on a community board. Squat entries carry load/velocity/power, jump entries carry height. */
 data class CommunityEntry(
     val name: String,
@@ -31,6 +34,16 @@ enum class CommunityMetric(val lift: ExerciseType, val label: String) {
         JUMP_POWER -> sayersPeakPowerW(e.jumpHeightCm ?: 0.0, e.bodyWeightKg).toDouble()
         POWER_PER_KG -> sayersPeakPowerW(e.jumpHeightCm ?: 0.0, e.bodyWeightKg) / e.bodyWeightKg
         FLIGHT_TIME -> flightTimeMs(e.jumpHeightCm ?: 0.0).toDouble()
+    }
+
+    fun format(e: CommunityEntry, unit: WeightUnit): String = when (this) {
+        LOAD -> formatWeight(value(e), unit)
+        RELATIVE -> "%.2f×BW".format(Locale.US, value(e))
+        MEAN_VELOCITY -> "%.2f m/s".format(Locale.US, value(e))
+        POWER, JUMP_POWER -> "%,d W".format(Locale.US, value(e).roundToInt())
+        HEIGHT -> "%.1f cm".format(Locale.US, value(e))
+        POWER_PER_KG -> "%.1f W/kg".format(Locale.US, value(e))
+        FLIGHT_TIME -> "${value(e).roundToInt()} ms"
     }
 
     companion object {
