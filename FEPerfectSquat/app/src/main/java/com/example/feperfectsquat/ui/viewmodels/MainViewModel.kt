@@ -2,6 +2,7 @@ package com.example.feperfectsquat.ui.viewmodels
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.feperfectsquat.models.AnalysisSession
@@ -10,6 +11,7 @@ import com.example.feperfectsquat.models.ExerciseType
 import com.example.feperfectsquat.network.ContentUriRequestBody
 import com.example.feperfectsquat.network.RetrofitClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +23,10 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 
+/** Steps of one video analysis, in order. */
+enum class AnalysisStage { IDLE, UPLOADING, ANALYZING, DOWNLOADING, DONE, ERROR }
+
+/** Runs a video analysis against the backend: create session → upload → poll → download the tracked video. */
 class MainViewModel : ViewModel() {
     private companion object {
         const val POLL_INTERVAL_MS = 2_000L
@@ -31,15 +37,21 @@ class MainViewModel : ViewModel() {
     val uiState: StateFlow<UiState> = _uiState
 
     private val apiService = RetrofitClient.apiService
+    private var job: Job? = null
 
     data class UiState(
-        val isAnalyzing: Boolean = false,
-        val analysisProgress: String = "",
+        val stage: AnalysisStage = AnalysisStage.IDLE,
+        val exerciseType: ExerciseType = ExerciseType.SQUAT,
+        val fileName: String = "",
+        /** Upload fraction (0..1); null while the stage has no measurable progress. */
+        val uploadProgress: Float? = null,
         val analysisResult: AnalysisSession? = null,
         val processedVideoUri: Uri? = null,
         val errorMessage: String? = null,
-        val sessionId: Long? = null
-    )
+    ) {
+        val isBusy: Boolean
+            get() = stage == AnalysisStage.UPLOADING || stage == AnalysisStage.ANALYZING || stage == AnalysisStage.DOWNLOADING
+    }
 
     fun analyzeVideo(
         context: Context,
@@ -49,47 +61,33 @@ class MainViewModel : ViewModel() {
         bodyWeightKg: Double?,
         heightCm: Double?
     ) {
-        viewModelScope.launch {
+        if (_uiState.value.isBusy) return
+        job = viewModelScope.launch {
+            _uiState.value = UiState(
+                stage = AnalysisStage.UPLOADING,
+                exerciseType = exerciseType,
+                fileName = displayName(context, videoUri),
+                uploadProgress = 0f
+            )
             try {
-                _uiState.update { it.copy(isAnalyzing = true, errorMessage = null, analysisProgress = "Creando sesión...") }
-
-                // 1. Crear sesión
                 val session = apiService.createSession(CreateSessionRequest(exerciseType))
-                val sessionId = session.id
-                _uiState.update { it.copy(sessionId = sessionId, analysisProgress = "Subiendo video...") }
-
-                // 2. Preparar archivo para subida
                 val filePart = prepareVideoPart(context, videoUri)
-                val weightPart = weightKg?.toTextPart()
-                val bodyWeightPart = bodyWeightKg?.toTextPart()
-                val heightPart = heightCm?.toTextPart()
+                // The backend answers 202 and analyzes in the background
+                apiService.uploadVideo(
+                    session.id, filePart, weightKg?.toTextPart(), bodyWeightKg?.toTextPart(), heightCm?.toTextPart()
+                )
 
-                // 3. Subir video: el backend responde 202 y analiza en segundo plano
-                apiService.uploadVideo(sessionId, filePart, weightPart, bodyWeightPart, heightPart)
+                _uiState.update { it.copy(stage = AnalysisStage.ANALYZING, uploadProgress = null) }
+                val result = waitForAnalysis(session.id)
 
-                // 4. Consultar la sesión hasta que el análisis termine
-                _uiState.update { it.copy(analysisProgress = "Analizando video (esto puede tardar)...") }
-                val analysisResult = waitForAnalysis(sessionId)
+                _uiState.update { it.copy(stage = AnalysisStage.DOWNLOADING, analysisResult = result) }
+                // The tracked video is a bonus: a failed download must not hide the metrics
+                val processed = runCatching { downloadProcessedVideo(context, session.id) }.getOrNull()
 
-                // 5. Descargar video procesado
-                _uiState.update { it.copy(analysisProgress = "Descargando video procesado...") }
-                val processedVideoUri = downloadProcessedVideo(context, sessionId)
-
-                _uiState.update {
-                    it.copy(
-                        isAnalyzing = false,
-                        analysisResult = analysisResult,
-                        processedVideoUri = processedVideoUri,
-                        analysisProgress = "Completado"
-                    )
-                }
+                _uiState.update { it.copy(stage = AnalysisStage.DONE, processedVideoUri = processed) }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(
-                        isAnalyzing = false,
-                        errorMessage = "Error: ${e.message}",
-                        analysisProgress = ""
-                    )
+                    it.copy(stage = AnalysisStage.ERROR, uploadProgress = null, errorMessage = e.message ?: "Something went wrong")
                 }
             }
         }
@@ -103,18 +101,27 @@ class MainViewModel : ViewModel() {
             val session = apiService.getSession(sessionId)
             when (session.state) {
                 "FINISHED" -> return session
-                "ERROR" -> throw Exception("El análisis del vídeo ha fallado")
+                "ERROR" -> throw Exception("The video analysis failed. Check the filming tips and try again.")
             }
             delay(POLL_INTERVAL_MS)
         }
-        throw Exception("El análisis está tardando demasiado")
+        throw Exception("The analysis is taking too long. Try again later.")
     }
 
     private fun prepareVideoPart(context: Context, videoUri: Uri): MultipartBody.Part {
-        // El vídeo se lee mientras se envía, sin cargarlo entero en memoria
-        val requestBody = ContentUriRequestBody(context.contentResolver, videoUri, "video/mp4".toMediaTypeOrNull())
+        // The video is read while it is sent, never loaded whole in memory
+        val requestBody = ContentUriRequestBody(context.contentResolver, videoUri, "video/mp4".toMediaTypeOrNull()) { sent ->
+            _uiState.update { if (it.stage == AnalysisStage.UPLOADING) it.copy(uploadProgress = sent) else it }
+        }
         return MultipartBody.Part.createFormData("file", "squat_video.mp4", requestBody)
     }
+
+    private fun displayName(context: Context, uri: Uri): String =
+        runCatching {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        }.getOrNull() ?: uri.lastPathSegment ?: "video"
 
     private suspend fun downloadProcessedVideo(context: Context, sessionId: Long): Uri {
         return withContext(Dispatchers.IO) {
@@ -130,8 +137,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun clearAnalysis() {
-        _uiState.update {
-            UiState()
-        }
+        job?.cancel()
+        _uiState.value = UiState()
     }
 }
