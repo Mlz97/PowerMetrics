@@ -50,7 +50,8 @@ public class VideoController {
         
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("video/mp4"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"processed_video.mp4\"")
+                // inline: la web lo reproduce en <video>; Spring atiende las peticiones Range del reproductor
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"processed_video.mp4\"")
                 .body(resource);
     }
 
