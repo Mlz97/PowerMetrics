@@ -1,0 +1,38 @@
+/* PwrMetrics palette (from the Android theme): warm near-blacks with an orange accent. The design is dark only. */
+:root {
+  color-scheme: dark;
+
+  /* Darkest layer: app background and inset wells (stepper buttons, stat tiles) */
+  --pm-canvas: #0b0a09;
+  /* Onboarding background and tab bar */
+  --pm-background: #12100e;
+  /* Cards and inputs */
+  --pm-surface: #1c1916;
+  --pm-stripe: #221e1a;
+  --pm-line: #2a2520;
+  --pm-line-strong: #2e2924;
+  --pm-handle: #3a342e;
+
+  --pm-accent: #ff6a26;
+  --pm-accent-light: #ff8a57;
+  --pm-accent-deep: #ff5b14;
+  --pm-accent-mid: #c24e1b;
+  --pm-accent-soft: #5a2e18;
+  /* Orange-tinted surface (Community card, selected chips, "You" row) */
+  --pm-accent-tint: #2a1a10;
+
+  --pm-text: #f6f2ee;
+  --pm-text-secondary: #b5aca3;
+  --pm-text-muted: #8a8178;
+  --pm-text-faint: #6f675f;
+  --pm-error: #ff6b6b;
+  --pm-on-accent: #ffffff;
+
+  --pm-sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --pm-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 100px;
+}
