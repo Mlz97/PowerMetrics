@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +22,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.JumpDetail;
@@ -151,6 +154,37 @@ class AnalysisSessionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("BAD_REQUEST"))
                 .andExpect(jsonPath("$.message").value("El archivo de vídeo está vacío"));
+    }
+
+    @Test
+    void uploadVideoTooLargeReturnsPayloadTooLarge() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), any(), any()))
+                .thenThrow(new MaxUploadSizeExceededException(200L * 1024 * 1024));
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.error").value("FILE_TOO_LARGE"))
+                .andExpect(jsonPath("$.message").value("El vídeo supera el tamaño máximo permitido"));
+    }
+
+    @Test
+    void corsPreflightFromAllowedOriginIsAccepted() throws Exception {
+        mockMvc.perform(options("/session")
+                .header("Origin", "http://localhost:5173")
+                .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    void corsPreflightFromUnknownOriginIsRejected() throws Exception {
+        mockMvc.perform(options("/session")
+                .header("Origin", "https://evil.example")
+                .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 
     @Test

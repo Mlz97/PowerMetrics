@@ -8,7 +8,7 @@ from services.jump_analyzer import JumpAnalyzer
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="PerfectSquat Python Analysis Service")
+app = FastAPI(title="PwrMetrics Analysis Service")
 
 @app.post("/analyze", response_model=PythonAnalysisResponse)
 def analyze_video(request: PythonAnalysisRequest):
