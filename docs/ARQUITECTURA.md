@@ -1,39 +1,42 @@
-# Arquitectura de PowerMetrics
+# Arquitectura de PwrMetrics
 
-PowerMetrics analiza vídeos de ejercicios con visión artificial: **sentadilla** y **salto vertical con contramovimiento (CMJ)**. La app Android sube el vídeo, el backend Java orquesta el proceso y un servicio Python con MediaPipe extrae las métricas. Este documento es la referencia para retomar el desarrollo: qué hace cada pieza, cómo se comunican y cómo se ejecutan.
+PwrMetrics (antes PowerMetrics) analiza vídeos de ejercicios con visión artificial: **sentadilla** y **salto vertical con contramovimiento (CMJ)**. La web (o la app Android) sube el vídeo, el backend Java orquesta el proceso y un servicio Python con MediaPipe extrae las métricas. Este documento es la referencia para retomar el desarrollo: qué hace cada pieza, cómo se comunican y cómo se ejecutan.
 
-> Pendientes y deuda técnica: [PENDIENTES.md](PENDIENTES.md).
+> Pendientes y deuda técnica: [PENDIENTES.md](PENDIENTES.md). Despliegue en un VPS: [DESPLIEGUE.md](DESPLIEGUE.md).
 
 ## Vista rápida
 
 ```mermaid
 sequenceDiagram
-    participant App as App Android (Kotlin)
+    participant App as Web (React) o app Android
     participant BE as Backend (Spring Boot)
     participant PY as Servicio de análisis (FastAPI)
 
     App->>BE: POST /session {exerciseType}
     BE-->>App: 201 sesión WAITING
     App->>BE: POST /session/{id}/video (multipart + parámetros)
-    BE->>BE: guarda vídeo en uploads/, sesión PROCESSING
+    BE->>BE: guarda vídeo en pwr.storage.dir, sesión PROCESSING
     BE-->>App: 202 sesión PROCESSING
     BE->>PY: POST /analyze (en segundo plano, @Async)
-    PY-->>BE: métricas + ruta del vídeo anotado
+    PY->>PY: ffmpeg normaliza (H.264, FPS constante, rotado)
+    PY-->>BE: métricas + ruta del vídeo anotado (H.264)
     BE->>BE: sesión FINISHED (o ERROR)
     loop cada 2 s, máx. 10 min
         App->>BE: GET /session/{id}
     end
     App->>BE: GET /video/download/{id}
-    BE-->>App: vídeo anotado (mp4)
+    BE-->>App: vídeo anotado (mp4, inline con Range)
 ```
 
 ## Componentes
 
 | Componente | Carpeta | Stack | Puerto |
 |---|---|---|---|
-| App móvil | `FEPerfectSquat/` | Kotlin 2.2, Jetpack Compose, Retrofit 2.9, minSdk 24 | — |
-| Backend | `BEPerfectSquat/` | Java 17, Spring Boot 3.4, JPA + H2 en memoria | 8080 |
-| Servicio de análisis | `PYAnalysisService/` | Python, FastAPI, MediaPipe 0.10.14, OpenCV | 8000 |
+| Web | `web/` | React 18, Vite 5, TypeScript, TanStack Query, React Router | 5173 en desarrollo |
+| App móvil (congelada) | `FEPerfectSquat/` | Kotlin 2.2, Jetpack Compose, Retrofit 2.9, minSdk 24 | — |
+| Backend | `BEPerfectSquat/` | Java 17, Spring Boot 3.4, JPA; H2 en memoria en local, PostgreSQL con el perfil `prod` | 8080 |
+| Servicio de análisis | `PYAnalysisService/` | Python, FastAPI, MediaPipe 0.10.14, OpenCV, ffmpeg | 8000 |
+| Proxy (producción) | `deploy/` | Caddy 2: HTTPS, sirve la web y pasa `/api/*` al backend | 80/443 |
 
 ## Backend (`BEPerfectSquat`)
 
@@ -43,21 +46,38 @@ Organizado en capas, de fuera hacia dentro:
 |---|---|---|
 | API | `api/controller`, `api/dto`, `api/exception` | Adaptador HTTP, contrato público y mapeo de errores |
 | Dominio | `domain/entity`, `domain/service`, `domain/repository`, `domain/enums` | Sesiones, vídeos, reglas de estado |
-| Infraestructura | `infrastructure/client`, `infrastructure/service`, `infrastructure/config` | Cliente HTTP a Python, almacenamiento en disco, `RestTemplate` |
+| Infraestructura | `infrastructure/client`, `infrastructure/service`, `infrastructure/config`, `infrastructure/web` | Cliente HTTP a Python, almacenamiento en disco, `RestTemplate`, CORS, pool de análisis, cookie de propietario y límite por IP |
 
 > Las entidades JPA son a la vez modelo de dominio y de persistencia. No es arquitectura hexagonal estricta: el dominio depende de `AnalysisClient` y de `StorageService` sin puertos intermedios.
 
 ### Endpoints
 
+Sin login: el filtro `ClientIdFilter` da a cada navegador una cookie anónima `pwr_cid` (UUID, `HttpOnly`, `SameSite=Lax`, `Secure` en `prod`, 1 año). Las sesiones guardan ese `ownerId` y todos los endpoints filtran por él: la sesión o el vídeo de otro navegador responde **404**.
+
 | Método | Ruta | Respuesta | Uso |
 |---|---|---|---|
 | POST | `/session` | 201 `AnalysisSessionResponse` | Crea una sesión en `WAITING`. Body opcional `{"exerciseType": "SQUAT" o "VERTICAL_JUMP"}`; sin body, `SQUAT` |
-| GET | `/session` | 200 `AnalysisSessionResponse[]` | Lista todas las sesiones, la más reciente primero (Histórico y Estadísticas) |
+| GET | `/session` | 200 `AnalysisSessionResponse[]` | Lista las sesiones de este navegador, la más reciente primero (Histórico y Estadísticas) |
 | GET | `/session/{id}` | 200 `AnalysisSessionResponse` | Consulta estado y métricas, con `reps[]` (sentadilla) o `jumps[]` (salto); la app hace polling aquí |
-| POST | `/session/{id}/video` | 202 `AnalysisSessionResponse` / 400 / 409 / 500 | Única subida: guarda el vídeo y lanza el análisis. Parámetros opcionales: `weightKg` (barra, sentadilla, admite decimales), `bodyWeightKg` y `heightCm` (salto) |
+| POST | `/session/{id}/video` | 202 `AnalysisSessionResponse` / 400 / 409 / 413 / 429 / 500 / 503 | Única subida: guarda el vídeo y lanza el análisis. Solo `.mp4 .mov .m4v .webm` (400); más de 200 MB → 413 `FILE_TOO_LARGE`; cola de análisis llena → 503 `ANALYSIS_BUSY` con `Retry-After: 60` y la sesión vuelve a `WAITING`. Parámetros opcionales: `weightKg` (barra, sentadilla, admite decimales), `bodyWeightKg` y `heightCm` (salto) |
 | GET | `/video?sessionId=` | 200 `VideoResponse` | Datos del vídeo de una sesión |
-| GET | `/video/download/{sessionId}` | 200 mp4 / 404 | Descarga el vídeo anotado |
-| — | `/h2-console` | — | Consola de la base de datos (solo desarrollo) |
+| GET | `/video/download/{sessionId}` | 200/206 mp4 / 404 | Vídeo anotado con `Content-Disposition: inline` para `<video>`; admite `Range` |
+| — | `/h2-console` | — | Consola de la base de datos (solo desarrollo; desactivada en `prod`) |
+
+### Límites de uso
+
+| Límite | Por defecto | Propiedad / variable | Al superarlo |
+|---|---|---|---|
+| Subidas por IP | 5/hora y 20/día | `pwr.rate-limit.upload-per-hour`, `upload-per-day` (`PWR_RATE_UPLOAD_PER_*`) | 429 `TOO_MANY_REQUESTS` + `Retry-After` |
+| Sesiones creadas por IP | 30/hora | `pwr.rate-limit.create-per-hour` | 429 |
+| Resto del API por IP | 120/min | `pwr.rate-limit.general-per-minute` | 429 |
+| Tamaño de subida | 200 MB fichero, 210 MB petición | `spring.servlet.multipart.*` (`PWR_UPLOAD_MAX_*`) | 413 `FILE_TOO_LARGE` |
+| Análisis simultáneos | 2 en curso + 10 en cola | `pwr.analysis.concurrency`, `queue-capacity` | 503 `ANALYSIS_BUSY` |
+| Duración del vídeo | 60 s | `PWR_MAX_VIDEO_SECONDS` (servicio Python) | la sesión termina en `ERROR` |
+
+El límite por IP usa Bucket4j con buckets en una caché Caffeine que caduca. Detrás de Caddy, `server.forward-headers-strategy=native` hace que `getRemoteAddr()` sea la IP real; Caddy sobrescribe cualquier `X-Forwarded-For` que mande el cliente.
+
+CORS (`CorsConfig`) permite los orígenes de `pwr.cors.allowed-origins`. En producción la web y el API comparten dominio (`/api/*`), así que solo hace falta para el dev server o un API en subdominio.
 
 ### Ciclo de vida de una sesión
 
@@ -85,7 +105,7 @@ stateDiagram-v2
 | `RepDetail` | `repNumber`, `valid`, `minHipAngle`, `minKneeAngle`, `concentricVelocity` | pertenece a una sesión |
 | `JumpDetail` | `jumpNumber`, `flightTime`, `heightFlightCm`, `takeoffVelocity`, `minKneeAngle`, `countermovementDepthCm`, `heightDisplacementCm`, `peakPowerW` | pertenece a una sesión; se devuelve en `jumps[]` |
 
-Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado lleva el sufijo `_analyzed.mp4`. La carpeta está en `.gitignore`.
+Los vídeos se guardan en `pwr.storage.dir` (`uploads/` en local, `/data/videos` en Docker) con nombre UUID; el anotado lleva el sufijo `_analyzed.mp4`. `uploads/` está en `.gitignore`. `VideoRetentionJob` borra cada día a las 3:00 los ficheros con más de `pwr.retention.days` (7) días y deja las métricas.
 
 ## Servicio de análisis (`PYAnalysisService`)
 
@@ -95,7 +115,9 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 |---|---|
 | `sessionId`, `videoFilePath` (ruta absoluta en disco), `exerciseType` (`SQUAT` por defecto), `weightKg?`, `bodyWeightKg?`, `heightCm?` | Común: `sessionId`, `exerciseType`, `processedVideoFilePath`, `videoFps`, `lowFpsWarning`, `fatigueIndex`. Sentadilla: `totalReps`, `validReps`, `reps[]`, `averageConcentricVelocity`, `estimatedRM`. Salto: `totalJumps`, `jumps[]`, `bestJumpHeightCm`, `avgJumpHeightCm`, `peakPowerW` |
 
-`main.py` despacha según `exerciseType` a `SquatAnalyzer` o `JumpAnalyzer`.
+`main.py` despacha según `exerciseType` a `SquatAnalyzer` o `JumpAnalyzer`; un vídeo rechazado (`VideoRejected`) responde 422.
+
+**Normalización** (`services/video_normalizer.py`): antes de analizar, `ffprobe` exige pista de vídeo y como mucho `PWR_MAX_VIDEO_SECONDS`; después `ffmpeg` crea una copia H.264 a FPS constante (los mismos FPS del original), rotada según los metadatos y con 1080 px de alto como máximo. Así los `.mov`/HEVC/VFR de iPhone no rompen OpenCV. La copia se borra al terminar. El vídeo anotado (OpenCV lo escribe en `mp4v`) se recodifica a H.264 con `faststart` para que lo reproduzca el navegador; si eso falla, se queda el `mp4v` y las métricas siguen. Sin ffmpeg instalado se analiza el original con un aviso, salvo con `PWR_REQUIRE_FFMPEG=true` (así está en Docker).
 
 > Python lee y escribe el vídeo **en el mismo disco que el backend**, a partir de la ruta que recibe. Ambos servicios tienen que correr en la misma máquina.
 
@@ -144,7 +166,23 @@ Los vídeos se guardan en `BEPerfectSquat/uploads/` con nombre UUID; el anotado 
 
 > La altura por desplazamiento incluye la extensión de tobillos en el despegue, así que suele salir algo mayor que la del tiempo de vuelo. Sirve para contrastar, no para sustituirla.
 
+## Web (`web/`)
+
+SPA en React + Vite + TypeScript, misma interfaz y textos (en inglés) que la app Android. Atomic design y container-presentational:
+
+| Capa | Carpeta | Contenido |
+|---|---|---|
+| Dominio | `src/domain` | Lógica pura portada de los modelos Kotlin (`homeStats`, `resultSummary`, `community`, `units`, `jumpMath`, `profile`), con sus tests |
+| API | `src/api` | `fetch` con `credentials: 'include'`; la subida usa XHR para tener progreso. `errors.ts` traduce 413/429/503 a mensajes; `uploadRules.ts` comprueba formato, 200 MB y 60 s antes de subir |
+| Estado | `src/hooks` | `AnalysisContext` (crear sesión → subir → polling cada 2 s, máx. 10 min) vive por encima de las pestañas; `ProfileContext` guarda el perfil en `localStorage`; `useSessions` con TanStack Query |
+| Componentes | `src/components/{atoms,molecules,organisms}` | Presentacionales, sin llamadas al API |
+| Páginas | `src/pages` | Cada página es un contenedor (`XPage`) que conecta hooks con su vista pura (`XView`) |
+
+El API se llama en `/api` (en desarrollo, el proxy de Vite lo reenvía a `localhost:8080`; en producción, Caddy). `VITE_API_BASE` lo cambia si el API está en otro dominio.
+
 ## App Android (`FEPerfectSquat`)
+
+> Congelada desde el paso a web. Con la cookie de propietario necesita un `CookieJar` en OkHttp para seguir viendo su historial (ver [PENDIENTES.md](PENDIENTES.md)).
 
 La interfaz sigue el diseño "PowerMetrics 1B" de Claude Design (tema oscuro, acento naranja, textos en inglés).
 
@@ -167,14 +205,18 @@ La interfaz sigue el diseño "PowerMetrics 1B" de Claude Design (tema oscuro, ac
 |---|---|
 | 1. Servicio de análisis | `cd PYAnalysisService && py -3.12 -m venv .venv && .venv/Scripts/pip install -r requirements.txt && cd app && ../.venv/Scripts/python main.py` (Python 3.12: `mediapipe==0.10.14` solo publica wheels hasta 3.12; ver `.python-version`) |
 | 2. Backend | `cd BEPerfectSquat && ./mvnw spring-boot:run` |
-| 3. App | Abrir `FEPerfectSquat/` en Android Studio y ejecutar en el emulador |
+| 3. Web | `cd web && npm install && npm run dev` → http://localhost:5173 |
+| 3b. App Android | Abrir `FEPerfectSquat/` en Android Studio y ejecutar en el emulador |
+
+Sin ffmpeg en local el análisis funciona con el vídeo original, pero los HEVC pueden fallar y el anotado puede no reproducirse en el navegador. Para producción: [DESPLIEGUE.md](DESPLIEGUE.md).
 
 ## Tests
 
 | Módulo | Comando | Notas |
 |---|---|---|
 | Backend | `cd BEPerfectSquat && ./mvnw test` | El `pom.xml` fija `-Dnet.bytebuddy.experimental=true` en el `argLine` para que Mockito funcione con JDK 25 |
-| Python | `cd PYAnalysisService && .venv/Scripts/python -m unittest discover -s tests` | Lógica pura (`depth.py`, `jump_metrics.py`) y contrato (`models.py`); necesita `pydantic` en el venv, no MediaPipe; corren en Python 3.12 o 3.14 |
+| Python | `cd PYAnalysisService && .venv/Scripts/python -m unittest discover -s tests` | Lógica pura (`depth.py`, `jump_metrics.py`, `video_normalizer.py`) y contrato (`models.py`); necesita `pydantic` en el venv, no MediaPipe; los tests con ffmpeg real se saltan si no hay `ffmpeg` y `ffprobe` |
+| Web | `cd web && npm test` (y `npm run build`, que también comprueba tipos) | Vitest sobre la lógica de dominio y el API |
 | App | Android Studio | Solo existen los tests de ejemplo |
 
 ## Convenciones de trabajo

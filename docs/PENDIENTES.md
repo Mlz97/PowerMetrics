@@ -15,15 +15,29 @@ Lista viva de lo que queda por resolver, ordenada por prioridad. Al cerrar un pu
 - [x] **Integrar `fix/pending-items`** en `feat/vertical-jump` (merge).
 - [ ] **Tráfico HTTP en claro en la app.** Con `targetSdk 36` Android bloquea `http://` por defecto y el manifiesto no declara `usesCleartextTraffic` ni `networkSecurityConfig`. La app compila, pero no se ha probado en un dispositivo. Si falla, permitir solo `10.0.2.2` en un `network_security_config.xml` de debug.
 
+## Lanzamiento web (`feat/pwrmetrics-web`)
+
+Seguimiento: `odd/tasks/pwrmetrics-web-launch.md`.
+
+- [ ] **Primer despliegue real** en el VPS con `deploy/docker-compose.yml`: en la máquina de desarrollo no hay Docker, así que ni las imágenes ni el Compose se han construido nunca.
+- [ ] **Prueba con un `.mov` HEVC real de iPhone** en el stack de Docker: la normalización se ha probado con un HEVC sintético rotado y un ffmpeg 7.1 local; `ffprobe` no se ha ejecutado nunca (solo su parseo, con tests).
+- [ ] **Revisar la web en un navegador real** (Chrome, Safari en iPhone): compila, los tests pasan y el API responde a través del proxy de Vite, pero no se ha mirado ninguna pantalla.
+- [ ] **numpy en la imagen de análisis**: el venv local funciona con numpy 2.5.4 y `mediapipe==0.10.14`; si `pip install` en Docker resuelve otra versión incompatible, fijar `numpy` en `requirements.txt`.
+- [ ] **Mensaje de error del análisis**: un vídeo rechazado por Python (demasiado largo, sin pista de vídeo) deja la sesión en `ERROR` sin decir por qué; la web muestra un mensaje genérico. Guardar el motivo en la sesión.
+- [ ] **App Android y la cookie de propietario**: OkHttp no guarda cookies por defecto, así que cada petición recibe un `pwr_cid` nuevo y la app no ve su historial. Añadir un `CookieJar` persistente.
+- [ ] **Migraciones**: `ddl-auto=update` solo añade columnas. Pasar a Flyway antes del primer cambio de esquema no aditivo.
+- [ ] **Avisos legales**: la bienvenida explica la retención de 7 días y que no hay cuenta; falta una política de privacidad completa (los vídeos de personas son datos personales).
+- [ ] **Las subidas rechazadas (400, 413) cuentan para el límite por IP**: es deliberado (también gastan ancho de banda), pero un usuario que se equivoca de fichero tres veces se queda sin subidas durante una hora con el límite por defecto de 5/hora.
+
 ## Prioridad media: funcionalidad y calidad de las métricas
 
-- [ ] **Persistencia real.** H2 en memoria pierde todas las sesiones al reiniciar, y los vídeos quedan huérfanos en disco. PostgreSQL ya está en el `pom.xml`.
+- [x] **Persistencia real.** Perfil `prod` con PostgreSQL (Docker Compose); en local sigue H2 en memoria. Los vídeos se borran a los 7 días (`VideoRetentionJob`). (561b7f0, 0ccd1c9)
 - [x] **Histórico y Estadísticas.** `GET /session` lista las sesiones (la más reciente primero) y las dos pantallas lo usan; las estadísticas solo cuentan sesiones `FINISHED`. (884d3cf)
 - [ ] **Velocidad real.** `concentricVelocity` es `1 / tiempo de subida` (1/s), no m/s. Para tener m/s hace falta una escala (altura del usuario, diámetro del disco...).
 - [ ] **Calibrar la regla de profundidad** con vídeos reales: usa centros articulares de MediaPipe y no la cresta de la cadera ni la parte superior de la rodilla.
 - [x] **Errores silenciados en Python.** El bucle de frames registra el primer fallo con traza y un resumen al final (`services/frame_errors.py`); `error_log.txt` se sustituye por `logger.exception`. (4db2fc8)
 - [x] **Mensajes de error del backend.** Estado de sesión inválido → 409 `INVALID_STATE` con el estado actual; `IllegalArgumentException` devuelve su propio mensaje; `StorageException` → 500 `STORAGE_ERROR`; vídeo vacío → 400. (3c8ef1a)
-- [ ] **Acoplamiento por disco.** Python recibe una ruta absoluta del backend, así que ambos deben compartir máquina. Valorar enviar el fichero o usar un almacenamiento común.
+- [ ] **Acoplamiento por disco.** Python recibe una ruta absoluta del backend. En Docker Compose comparten el volumen `videos` en la misma ruta, así que funciona en un VPS; para separar los servicios en varias máquinas haría falta enviar el fichero o usar un almacenamiento común (S3).
 
 ## Prioridad baja: limpieza
 

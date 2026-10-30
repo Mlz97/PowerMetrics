@@ -1,0 +1,25 @@
+{$PWR_DOMAIN} {
+	encode zstd gzip
+
+	# Same origin for the SPA and the API: no CORS needed and the pwr_cid cookie is first-party
+	handle_path /api/* {
+		request_body {
+			max_size 210MB
+		}
+		# Caddy replaces any client-sent X-Forwarded-For with the real IP, which the per-IP rate limit relies on
+		reverse_proxy api:8080
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

@@ -1,0 +1,4 @@
+.venv
+.venv-py314-old
+tests
+**/__pycache__
