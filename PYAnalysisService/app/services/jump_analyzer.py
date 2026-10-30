@@ -5,6 +5,7 @@ import mediapipe as mp
 
 from models import PythonAnalysisResponse, PythonJumpDetail
 from services.jump_metrics import FrameSample, analyze_jumps, is_low_fps, resolve_fps
+from services.video_normalizer import make_browser_playable, normalized_video
 from services.video_paths import analyzed_output_path
 
 MIN_LEG_VISIBILITY = 0.3
@@ -61,7 +62,12 @@ class JumpAnalyzer:
         return FrameSample(foot_y=foot_y, hip_y=hip_y, knee_angle=knee_angle, leg_length_px=leg_length)
 
     def analyze(self) -> PythonAnalysisResponse:
-        cap = cv2.VideoCapture(self.video_path)
+        # Se analiza una copia normalizada (H.264, FPS constante, ya rotada); el anotado sigue junto al original
+        with normalized_video(self.video_path) as source:
+            return self._analyze(source)
+
+    def _analyze(self, source_path: str) -> PythonAnalysisResponse:
+        cap = cv2.VideoCapture(source_path)
         if not cap.isOpened():
             raise RuntimeError(f"OpenCV no pudo abrir el archivo de video: {self.video_path}")
 
@@ -99,6 +105,7 @@ class JumpAnalyzer:
 
         cap.release()
         out.release()
+        make_browser_playable(out_path)
 
         metrics = analyze_jumps(frames, fps, self.body_weight_kg, self.height_cm)
 
