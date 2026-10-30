@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import com.BEPerfectSquat.BEPerfectSquat.api.dto.response.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -96,7 +97,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private static Rule ruleFor(HttpServletRequest request) {
-        String path = request.getRequestURI().substring(request.getContextPath().length());
+        // Ruta decodificada y sin parámetros ";x=1", la misma que usa Spring para enrutar: la URI cruda permitía saltarse el límite
+        String path = UrlPathHelper.defaultInstance.getPathWithinApplication(request);
         if ("POST".equals(request.getMethod()) && UPLOAD_PATH.matcher(path).matches()) {
             return Rule.UPLOAD;
         }

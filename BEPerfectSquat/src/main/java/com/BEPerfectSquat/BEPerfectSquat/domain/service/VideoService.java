@@ -2,6 +2,8 @@ package com.BEPerfectSquat.BEPerfectSquat.domain.service;
 
 import java.time.LocalDateTime;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,10 +16,13 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoun
 import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.VideoRepository;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageException;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
 @Service
 public class VideoService {
+    private static final Logger log = LoggerFactory.getLogger(VideoService.class);
+
     private final VideoRepository videoRepository;
     private final AnalysisSessionRepository analysisSessionRepository;
     private final StorageService storageService;
@@ -69,7 +74,12 @@ public class VideoService {
             session.setVideo(null);
             videoRepository.delete(savedVideo);
             analysisSessionRepository.save(session);
-            storageService.delete(localFilePath);
+            try {
+                storageService.delete(localFilePath);
+            } catch (StorageException deleteError) {
+                // Un fichero huérfano lo borra la retención; el cliente debe recibir el 503, no un 500
+                log.warn("Could not delete rejected upload {}", localFilePath, deleteError);
+            }
             throw new AnalysisBusyException();
         }
 

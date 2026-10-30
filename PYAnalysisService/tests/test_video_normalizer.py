@@ -80,7 +80,7 @@ class CheckProbeTest(unittest.TestCase):
 class CommandTest(unittest.TestCase):
 
     def test_normalize_command_converts_to_constant_frame_rate_h264_without_audio(self):
-        command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=59.94)
+        command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=59.94, max_seconds=60)
         self.assertEqual(command[0], "ffmpeg")
         self.assertIn("-nostdin", command)
         self.assertEqual(command[command.index("-i") + 1], "/videos/a.mov")
@@ -89,10 +89,12 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(command[command.index("-fps_mode") + 1], "cfr")
         self.assertEqual(command[command.index("-r") + 1], "59.940")
         self.assertIn("-an", command)
+        # Files without a duration in the header pass ffprobe: ffmpeg still stops at the limit
+        self.assertEqual(command[command.index("-t") + 1], "60")
         self.assertEqual(command[-1], "/videos/a_normalized.mp4")
 
     def test_normalize_command_without_known_fps_keeps_source_timing(self):
-        command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=None)
+        command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=None, max_seconds=60)
         self.assertNotIn("-r", command)
 
     def test_playable_command_uses_faststart_h264(self):

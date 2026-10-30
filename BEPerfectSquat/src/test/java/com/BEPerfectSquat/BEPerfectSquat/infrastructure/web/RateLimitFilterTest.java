@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.net.URI;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -70,6 +71,29 @@ class RateLimitFilterTest {
                 .andExpect(jsonPath("$.status").value(429))
                 .andExpect(jsonPath("$.error").value("TOO_MANY_REQUESTS"))
                 .andExpect(jsonPath("$.message").value("Demasiadas peticiones, inténtalo más tarde"));
+    }
+
+    @Test
+    void pathParametersAndPercentEncodingStillCountAsUploads() throws Exception {
+        when(analysisSessionService.getSessionById(eq(1L), anyString())).thenReturn(new AnalysisSession());
+
+        mockMvc.perform(multipart("/session/1/video;x=1").file(video()).with(fromIp("10.0.0.8")))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(multipart(URI.create("/session/1/vide%6F")).file(video()).with(fromIp("10.0.0.8")))
+                .andExpect(status().isAccepted());
+        mockMvc.perform(multipart("/session/1/video;jsessionid=abc").file(video()).with(fromIp("10.0.0.8")))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void sessionCreationWithPathParametersCountsAsCreation() throws Exception {
+        when(analysisSessionService.createSession(any(), anyString())).thenReturn(new AnalysisSession());
+
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/session;x=" + i).with(fromIp("10.0.0.9")));
+        }
+        mockMvc.perform(post("/session").with(fromIp("10.0.0.9")))
+                .andExpect(status().isTooManyRequests());
     }
 
     @Test

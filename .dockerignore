@@ -1,0 +1,12 @@
+# Build context of deploy/Caddy.Dockerfile (repository root): only web/ and deploy/ are needed
+**/node_modules
+**/dist
+**/.venv
+**/.venv-py314-old
+**/target
+**/uploads
+FEPerfectSquat
+.git
+.atl
+.claude
+deploy/.env

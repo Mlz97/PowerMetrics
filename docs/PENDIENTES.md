@@ -27,6 +27,8 @@ Seguimiento: `odd/tasks/pwrmetrics-web-launch.md`.
 - [ ] **App Android y la cookie de propietario**: OkHttp no guarda cookies por defecto, así que cada petición recibe un `pwr_cid` nuevo y la app no ve su historial. Añadir un `CookieJar` persistente.
 - [ ] **Migraciones**: `ddl-auto=update` solo añade columnas. Pasar a Flyway antes del primer cambio de esquema no aditivo.
 - [ ] **Avisos legales**: la bienvenida explica la retención de 7 días y que no hay cuenta; falta una política de privacidad completa (los vídeos de personas son datos personales).
+- [ ] **Sesiones sin propietario**: las creadas antes del cambio tienen `owner_id` nulo y nadie las ve. En local da igual (H2 en memoria); si alguna base de datos ya tenía datos, asignarlas o borrarlas.
+- [ ] **IP real detrás de Caddy**: el límite por IP confía en que Caddy sobrescriba el `X-Forwarded-For` del cliente y en que Tomcat trate la red de Docker (172.16/12) como proxy interno. Son los valores por defecto de ambos, pero nada del repositorio los fija.
 - [ ] **Las subidas rechazadas (400, 413) cuentan para el límite por IP**: es deliberado (también gastan ancho de banda), pero un usuario que se equivoca de fichero tres veces se queda sin subidas durante una hora con el límite por defecto de 5/hora.
 
 ## Prioridad media: funcionalidad y calidad de las métricas

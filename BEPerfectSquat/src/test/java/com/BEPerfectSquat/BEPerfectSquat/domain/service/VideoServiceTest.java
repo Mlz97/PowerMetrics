@@ -28,6 +28,7 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageException;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
 @ExtendWith(MockitoExtension.class)
@@ -194,6 +195,26 @@ public class VideoServiceTest {
         assertEquals(null, session.getVideo());
         verify(videoRepository).delete(any(Video.class));
         verify(storageService).delete("uploads/video.mp4");
+    }
+
+    @Test
+    void failedCleanupOfRejectedUploadStillReportsBusy() {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(5L);
+        session.setOwnerId(OWNER);
+        AnalysisParameters params = new AnalysisParameters(80.0, null, null);
+        when(analysisSessionRepository.findById(5L)).thenReturn(Optional.of(session));
+        when(storageService.store(file)).thenReturn("uploads/video.mp4");
+        when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
+        doThrow(new TaskRejectedException("queue full"))
+                .when(analysisRunner).analyze(5L, "uploads/video.mp4", ExerciseType.SQUAT, params);
+        doThrow(new StorageException("No se pudo borrar el archivo: uploads/video.mp4"))
+                .when(storageService).delete("uploads/video.mp4");
+
+        assertThrows(AnalysisBusyException.class, () -> videoService.saveVideo(5L, OWNER, file, params));
+
+        assertEquals(AnalysisSessionState.WAITING, session.getState());
     }
 
     @Test

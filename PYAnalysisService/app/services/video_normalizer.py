@@ -71,13 +71,15 @@ def normalized_path(video_path: str) -> str:
     return f"{base}_normalized.mp4"
 
 
-def normalize_command(src: str, dst: str, fps: Optional[float]) -> List[str]:
+def normalize_command(src: str, dst: str, fps: Optional[float], max_seconds: float) -> List[str]:
     # ffmpeg aplica la rotacion de los metadatos al decodificar, el resultado ya sale derecho
     command = ["ffmpeg", "-nostdin", "-y", "-v", "error", "-i", src, "-map", "0:v:0",
                "-vf", f"scale=-2:'min({MAX_HEIGHT},ih)'"]
     if fps:
         command += ["-fps_mode", "cfr", "-r", f"{fps:.3f}"]
-    command += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-an", dst]
+    # -t: un archivo sin duracion en la cabecera pasa ffprobe, pero no se procesa mas alla del limite
+    command += ["-t", f"{max_seconds:g}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
+                "-an", dst]
     return command
 
 
@@ -121,7 +123,7 @@ def normalized_video(video_path: str, max_seconds: float = MAX_VIDEO_SECONDS) ->
     check_probe(info, max_seconds)
     output = normalized_path(video_path)
     try:
-        _run(normalize_command(video_path, output, info.fps))
+        _run(normalize_command(video_path, output, info.fps, max_seconds))
         yield output
     finally:
         if os.path.exists(output):
