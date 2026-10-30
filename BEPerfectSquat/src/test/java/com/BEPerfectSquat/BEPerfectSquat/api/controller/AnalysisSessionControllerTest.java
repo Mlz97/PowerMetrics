@@ -1,6 +1,7 @@
 package com.BEPerfectSquat.BEPerfectSquat.api.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -9,6 +10,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -21,6 +24,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import jakarta.servlet.http.Cookie;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
@@ -56,7 +60,7 @@ class AnalysisSessionControllerTest {
 
     @Test
     void createSessionWithoutBodyDefaultsToSquat() throws Exception {
-        when(analysisSessionService.createSession(ExerciseType.SQUAT))
+        when(analysisSessionService.createSession(eq(ExerciseType.SQUAT), anyString()))
                 .thenReturn(session(ExerciseType.SQUAT, AnalysisSessionState.WAITING));
 
         mockMvc.perform(post("/session"))
@@ -66,7 +70,7 @@ class AnalysisSessionControllerTest {
 
     @Test
     void createVerticalJumpSession() throws Exception {
-        when(analysisSessionService.createSession(ExerciseType.VERTICAL_JUMP))
+        when(analysisSessionService.createSession(eq(ExerciseType.VERTICAL_JUMP), anyString()))
                 .thenReturn(session(ExerciseType.VERTICAL_JUMP, AnalysisSessionState.WAITING));
 
         mockMvc.perform(post("/session")
@@ -84,13 +88,13 @@ class AnalysisSessionControllerTest {
                 .content("{\"exerciseType\": \"DEADLIFT\"}"))
                 .andExpect(status().isBadRequest());
 
-        verify(analysisSessionService, never()).createSession(any());
+        verify(analysisSessionService, never()).createSession(any(), any());
     }
 
     @Test
     void uploadVideoAcceptsAndReturnsProcessingSession() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
-        when(analysisSessionService.getSessionById(1L))
+        when(analysisSessionService.getSessionById(eq(1L), anyString()))
                 .thenReturn(session(ExerciseType.SQUAT, AnalysisSessionState.PROCESSING));
 
         mockMvc.perform(multipart("/session/1/video")
@@ -100,13 +104,13 @@ class AnalysisSessionControllerTest {
                 .andExpect(jsonPath("$.id").value(1L))
                 .andExpect(jsonPath("$.state").value("PROCESSING"));
 
-        verify(videoService).saveVideo(eq(1L), any(), eq(new AnalysisParameters(80.0, null, null)));
+        verify(videoService).saveVideo(eq(1L), anyString(), any(), eq(new AnalysisParameters(80.0, null, null)));
     }
 
     @Test
     void uploadJumpVideoPassesBodyWeightAndHeight() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
-        when(analysisSessionService.getSessionById(1L))
+        when(analysisSessionService.getSessionById(eq(1L), anyString()))
                 .thenReturn(session(ExerciseType.VERTICAL_JUMP, AnalysisSessionState.PROCESSING));
 
         mockMvc.perform(multipart("/session/1/video")
@@ -115,13 +119,13 @@ class AnalysisSessionControllerTest {
                 .param("heightCm", "180.0"))
                 .andExpect(status().isAccepted());
 
-        verify(videoService).saveVideo(eq(1L), any(), eq(new AnalysisParameters(null, 80.0, 180.0)));
+        verify(videoService).saveVideo(eq(1L), anyString(), any(), eq(new AnalysisParameters(null, 80.0, 180.0)));
     }
 
     @Test
     void uploadVideoRejectsInvalidParameters() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
-        when(videoService.saveVideo(eq(1L), any(), any()))
+        when(videoService.saveVideo(eq(1L), anyString(), any(), any()))
                 .thenThrow(new InvalidAnalysisParametersException("heightCm debe estar entre 100 y 250"));
 
         mockMvc.perform(multipart("/session/1/video")
@@ -135,7 +139,7 @@ class AnalysisSessionControllerTest {
     @Test
     void uploadVideoOnNonWaitingSessionReturnsConflictWithCause() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
-        when(videoService.saveVideo(eq(1L), any(), any()))
+        when(videoService.saveVideo(eq(1L), anyString(), any(), any()))
                 .thenThrow(new IllegalStateException("No se pueden subir videos cuando la sesión está en estado FINISHED"));
 
         mockMvc.perform(multipart("/session/1/video").file(file))
@@ -147,7 +151,7 @@ class AnalysisSessionControllerTest {
     @Test
     void uploadVideoBadArgumentReturnsItsMessage() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
-        when(videoService.saveVideo(eq(1L), any(), any()))
+        when(videoService.saveVideo(eq(1L), anyString(), any(), any()))
                 .thenThrow(new IllegalArgumentException("El archivo de vídeo está vacío"));
 
         mockMvc.perform(multipart("/session/1/video").file(file))
@@ -159,7 +163,7 @@ class AnalysisSessionControllerTest {
     @Test
     void uploadVideoTooLargeReturnsPayloadTooLarge() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
-        when(videoService.saveVideo(eq(1L), any(), any()))
+        when(videoService.saveVideo(eq(1L), anyString(), any(), any()))
                 .thenThrow(new MaxUploadSizeExceededException(200L * 1024 * 1024));
 
         mockMvc.perform(multipart("/session/1/video").file(file))
@@ -190,7 +194,7 @@ class AnalysisSessionControllerTest {
     @Test
     void uploadVideoStorageFailureReturnsStorageError() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
-        when(videoService.saveVideo(eq(1L), any(), any()))
+        when(videoService.saveVideo(eq(1L), anyString(), any(), any()))
                 .thenThrow(new StorageException("Fallo al guardar el archivo."));
 
         mockMvc.perform(multipart("/session/1/video").file(file))
@@ -213,7 +217,7 @@ class AnalysisSessionControllerTest {
         jump.setFlightTime(0.5);
         jump.setHeightFlightCm(30.66);
         session.getJumpDetails().add(jump);
-        when(analysisSessionService.getSessionById(1L)).thenReturn(session);
+        when(analysisSessionService.getSessionById(eq(1L), anyString())).thenReturn(session);
 
         mockMvc.perform(get("/session/1"))
                 .andExpect(status().isOk())
@@ -232,7 +236,7 @@ class AnalysisSessionControllerTest {
         AnalysisSession jump = session(ExerciseType.VERTICAL_JUMP, AnalysisSessionState.FINISHED);
         jump.setId(2L);
         AnalysisSession squat = session(ExerciseType.SQUAT, AnalysisSessionState.ERROR);
-        when(analysisSessionService.listSessions()).thenReturn(List.of(jump, squat));
+        when(analysisSessionService.listSessions(anyString())).thenReturn(List.of(jump, squat));
 
         mockMvc.perform(get("/session"))
                 .andExpect(status().isOk())
@@ -244,8 +248,43 @@ class AnalysisSessionControllerTest {
     }
 
     @Test
+    void firstRequestReceivesAnonymousClientCookie() throws Exception {
+        when(analysisSessionService.listSessions(anyString())).thenReturn(List.of());
+
+        mockMvc.perform(get("/session"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("pwr_cid=")))
+                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
+                .andExpect(header().string("Set-Cookie", containsString("SameSite=Lax")));
+    }
+
+    @Test
+    void knownClientCookieScopesTheSessionList() throws Exception {
+        String clientId = "6f1c2a7e-9b0d-4c3e-8a55-2f4d1e0b9c71";
+        when(analysisSessionService.listSessions(clientId)).thenReturn(List.of());
+
+        mockMvc.perform(get("/session").cookie(new Cookie("pwr_cid", clientId)))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+
+        verify(analysisSessionService).listSessions(clientId);
+    }
+
+    @Test
+    void malformedClientCookieIsReplaced() throws Exception {
+        when(analysisSessionService.listSessions(anyString())).thenReturn(List.of());
+
+        mockMvc.perform(get("/session").cookie(new Cookie("pwr_cid", "not-a-uuid")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("pwr_cid=")))
+                .andExpect(header().string("Set-Cookie", not(containsString("not-a-uuid"))));
+
+        verify(analysisSessionService, never()).listSessions("not-a-uuid");
+    }
+
+    @Test
     void listSessionsWithoutSessionsReturnsEmptyArray() throws Exception {
-        when(analysisSessionService.listSessions()).thenReturn(List.of());
+        when(analysisSessionService.listSessions(anyString())).thenReturn(List.of());
 
         mockMvc.perform(get("/session"))
                 .andExpect(status().isOk())
@@ -264,7 +303,7 @@ class AnalysisSessionControllerTest {
         rep.setMinKneeAngle(65.0);
         rep.setConcentricVelocity(0.8);
         session.getRepDetails().add(rep);
-        when(analysisSessionService.getSessionById(1L)).thenReturn(session);
+        when(analysisSessionService.getSessionById(eq(1L), anyString())).thenReturn(session);
 
         mockMvc.perform(get("/session/1"))
                 .andExpect(status().isOk())

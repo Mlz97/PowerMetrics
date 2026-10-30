@@ -31,9 +31,8 @@ public class VideoService {
         this.analysisRunner = analysisRunner;
     }
 
-    public Video saveVideo(Long sessionId, MultipartFile file, AnalysisParameters parameters) {
-        AnalysisSession session = analysisSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new AnalysisSessionNotFoundException(sessionId));
+    public Video saveVideo(Long sessionId, String ownerId, MultipartFile file, AnalysisParameters parameters) {
+        AnalysisSession session = findOwnedSession(sessionId, ownerId);
                 
         if (session.getState() != AnalysisSessionState.WAITING) {
             throw new IllegalStateException(
@@ -65,10 +64,15 @@ public class VideoService {
         return savedVideo;
     }
 
-    public Video getVideoBySessionId(Long sessionId) {
-        analysisSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new AnalysisSessionNotFoundException(sessionId));
+    public Video getVideoBySessionId(Long sessionId, String ownerId) {
+        findOwnedSession(sessionId, ownerId);
 
         return videoRepository.findBySession_Id(sessionId);
+    }
+
+    private AnalysisSession findOwnedSession(Long sessionId, String ownerId) {
+        return analysisSessionRepository.findById(sessionId)
+                .filter(session -> ownerId != null && ownerId.equals(session.getOwnerId()))
+                .orElseThrow(() -> new AnalysisSessionNotFoundException(sessionId));
     }
 }

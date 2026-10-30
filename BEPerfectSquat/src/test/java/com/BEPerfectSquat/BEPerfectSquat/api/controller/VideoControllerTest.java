@@ -43,7 +43,7 @@ public class VideoControllerTest {
 
     @Test
     void downloadWithoutProcessedVideoReturnsNotFound() throws Exception {
-        when(videoService.getVideoBySessionId(1L)).thenReturn(new Video());
+        when(videoService.getVideoBySessionId(eq(1L), anyString())).thenReturn(new Video());
 
         mockMvc.perform(get("/video/download/1"))
                 .andExpect(status().isNotFound());

@@ -37,6 +37,10 @@ public class AnalysisSession {
 
     private Long userId;
 
+    // Id anónimo del navegador que creó la sesión (cookie pwr_cid)
+    @Column(name = "owner_id", length = 36)
+    private String ownerId;
+
     @Column(name = "total_reps")
     private Integer totalReps;
 
@@ -117,6 +121,14 @@ public class AnalysisSession {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(String ownerId) {
+        this.ownerId = ownerId;
     }
 
     public Integer getTotalReps() {

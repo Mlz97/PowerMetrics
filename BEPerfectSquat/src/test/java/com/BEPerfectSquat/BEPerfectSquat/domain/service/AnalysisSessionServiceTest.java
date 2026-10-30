@@ -29,6 +29,8 @@ import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonJumpDet
 
 @ExtendWith(MockitoExtension.class)
 class AnalysisSessionServiceTest {
+    private static final String OWNER = "owner-a";
+
     @Mock
     private AnalysisSessionRepository analysisSessionRepository;
 
@@ -41,9 +43,9 @@ class AnalysisSessionServiceTest {
         newest.setId(2L);
         AnalysisSession oldest = new AnalysisSession();
         oldest.setId(1L);
-        when(analysisSessionRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(newest, oldest));
+        when(analysisSessionRepository.findAllByOwnerIdOrderByCreatedAtDesc(OWNER)).thenReturn(List.of(newest, oldest));
 
-        List<AnalysisSession> sessions = analysisSessionService.listSessions();
+        List<AnalysisSession> sessions = analysisSessionService.listSessions(OWNER);
 
         assertEquals(List.of(newest, oldest), sessions);
     }
@@ -52,10 +54,40 @@ class AnalysisSessionServiceTest {
     void createSessionStoresExerciseType() {
         when(analysisSessionRepository.save(any(AnalysisSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        AnalysisSession session = analysisSessionService.createSession(ExerciseType.VERTICAL_JUMP);
+        AnalysisSession session = analysisSessionService.createSession(ExerciseType.VERTICAL_JUMP, OWNER);
 
         assertEquals(ExerciseType.VERTICAL_JUMP, session.getExerciseType());
         assertEquals(AnalysisSessionState.WAITING, session.getState());
+        assertEquals(OWNER, session.getOwnerId());
+    }
+
+    @Test
+    void getSessionByIdReturnsOwnSession() {
+        AnalysisSession session = new AnalysisSession();
+        session.setId(1L);
+        session.setOwnerId(OWNER);
+        when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
+
+        assertEquals(session, analysisSessionService.getSessionById(1L, OWNER));
+    }
+
+    @Test
+    void getSessionByIdHidesAnotherOwnersSession() {
+        AnalysisSession session = new AnalysisSession();
+        session.setId(1L);
+        session.setOwnerId("owner-b");
+        when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
+
+        assertThrows(AnalysisSessionNotFoundException.class, () -> analysisSessionService.getSessionById(1L, OWNER));
+    }
+
+    @Test
+    void getSessionByIdHidesSessionsWithoutOwner() {
+        AnalysisSession session = new AnalysisSession();
+        session.setId(1L);
+        when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
+
+        assertThrows(AnalysisSessionNotFoundException.class, () -> analysisSessionService.getSessionById(1L, OWNER));
     }
 
     @Test

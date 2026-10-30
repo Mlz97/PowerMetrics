@@ -26,22 +26,24 @@ public class AnalysisSessionService {
         this.analysisSessionRepository = analysisSessionRepository;
     }
 
-    public AnalysisSession createSession(ExerciseType exerciseType) {
+    public AnalysisSession createSession(ExerciseType exerciseType, String ownerId) {
         AnalysisSession newSession = new AnalysisSession();
         newSession.setExerciseType(exerciseType);
+        newSession.setOwnerId(ownerId);
         newSession.setState(AnalysisSessionState.WAITING);
         newSession.setCreatedAt(LocalDateTime.now());
         return analysisSessionRepository.save(newSession);
     }
 
-    public List<AnalysisSession> listSessions() {
-        return analysisSessionRepository.findAllByOrderByCreatedAtDesc();
+    public List<AnalysisSession> listSessions(String ownerId) {
+        return analysisSessionRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId);
     }
 
-    public AnalysisSession getSessionById(Long id) {
-        AnalysisSession session = analysisSessionRepository.findById(id)
+    // La sesión de otro propietario se trata como inexistente para no revelar que existe
+    public AnalysisSession getSessionById(Long id, String ownerId) {
+        return analysisSessionRepository.findById(id)
+                .filter(session -> ownerId != null && ownerId.equals(session.getOwnerId()))
                 .orElseThrow(() -> new AnalysisSessionNotFoundException(id));
-        return session;
     }
 
     @Transactional

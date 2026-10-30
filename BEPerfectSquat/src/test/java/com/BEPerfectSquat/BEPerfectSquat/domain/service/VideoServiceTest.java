@@ -29,6 +29,8 @@ import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageService;
 
 @ExtendWith(MockitoExtension.class)
 public class VideoServiceTest {
+    private static final String OWNER = "owner-a";
+
     @Mock
     private VideoRepository videoRepository;
 
@@ -53,6 +55,7 @@ public class VideoServiceTest {
 
         AnalysisSession session = new AnalysisSession();
         session.setId(sessionId);
+        session.setOwnerId(OWNER);
 
         Video saveVideo = new Video();
         saveVideo.setSession(session);
@@ -68,7 +71,7 @@ public class VideoServiceTest {
 
         // WHEN
         AnalysisParameters params = new AnalysisParameters(weightKg, null, null);
-        Video result = videoService.saveVideo(sessionId, file, params);
+        Video result = videoService.saveVideo(sessionId, OWNER, file, params);
 
         // THEN
         assertNotNull(result);
@@ -91,7 +94,7 @@ public class VideoServiceTest {
 
         // WHEN + THEN
         assertThrows(AnalysisSessionNotFoundException.class,
-                () -> videoService.saveVideo(sessionId, file, AnalysisParameters.empty()));
+                () -> videoService.saveVideo(sessionId, OWNER, file, AnalysisParameters.empty()));
 
         verify(videoRepository, never()).save(any());
         verify(storageService, never()).store(any());
@@ -102,11 +105,12 @@ public class VideoServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
         AnalysisSession session = new AnalysisSession();
         session.setId(1L);
+        session.setOwnerId(OWNER);
         session.setState(AnalysisSessionState.PROCESSING);
         when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> videoService.saveVideo(1L, file, AnalysisParameters.empty()));
+                () -> videoService.saveVideo(1L, OWNER, file, AnalysisParameters.empty()));
 
         assertEquals("No se pueden subir videos cuando la sesión está en estado PROCESSING", ex.getMessage());
         verify(storageService, never()).store(any());
@@ -118,6 +122,7 @@ public class VideoServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "jump.mp4", "video/mp4", "content".getBytes());
         AnalysisSession session = new AnalysisSession();
         session.setId(sessionId);
+        session.setOwnerId(OWNER);
         session.setExerciseType(ExerciseType.VERTICAL_JUMP);
         AnalysisParameters params = new AnalysisParameters(null, 80.0, 180.0);
 
@@ -125,7 +130,7 @@ public class VideoServiceTest {
         when(storageService.store(file)).thenReturn("uploads/jump.mp4");
         when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        videoService.saveVideo(sessionId, file, params);
+        videoService.saveVideo(sessionId, OWNER, file, params);
 
         assertEquals(80.0, session.getBodyWeightKg());
         assertEquals(180.0, session.getHeightCm());
@@ -138,12 +143,13 @@ public class VideoServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
         AnalysisSession session = new AnalysisSession();
         session.setId(3L);
+        session.setOwnerId(OWNER);
 
         when(analysisSessionRepository.findById(3L)).thenReturn(Optional.of(session));
         when(storageService.store(file)).thenReturn("uploads/video.mp4");
         when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        videoService.saveVideo(3L, file, new AnalysisParameters(102.5, null, null));
+        videoService.saveVideo(3L, OWNER, file, new AnalysisParameters(102.5, null, null));
 
         assertEquals(102.5, session.getWeightKg());
     }
@@ -154,13 +160,43 @@ public class VideoServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "jump.mp4", "video/mp4", "content".getBytes());
         AnalysisSession session = new AnalysisSession();
         session.setId(sessionId);
+        session.setOwnerId(OWNER);
         when(analysisSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
 
         assertThrows(InvalidAnalysisParametersException.class,
-                () -> videoService.saveVideo(sessionId, file, new AnalysisParameters(null, 80.0, 50.0)));
+                () -> videoService.saveVideo(sessionId, OWNER, file, new AnalysisParameters(null, 80.0, 50.0)));
 
         verify(storageService, never()).store(any());
         assertEquals(AnalysisSessionState.WAITING, session.getState());
+    }
+
+    @Test
+    void uploadToAnotherOwnersSessionIsNotFound() {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(1L);
+        session.setOwnerId(OWNER);
+        session.setOwnerId("owner-b");
+        when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
+
+        assertThrows(AnalysisSessionNotFoundException.class,
+                () -> videoService.saveVideo(1L, OWNER, file, AnalysisParameters.empty()));
+
+        verify(storageService, never()).store(any());
+        assertEquals(AnalysisSessionState.WAITING, session.getState());
+    }
+
+    @Test
+    void videoOfAnotherOwnersSessionIsNotFound() {
+        AnalysisSession session = new AnalysisSession();
+        session.setId(1L);
+        session.setOwnerId(OWNER);
+        session.setOwnerId("owner-b");
+        when(analysisSessionRepository.findById(1L)).thenReturn(Optional.of(session));
+
+        assertThrows(AnalysisSessionNotFoundException.class, () -> videoService.getVideoBySessionId(1L, OWNER));
+
+        verify(videoRepository, never()).findBySession_Id(any());
     }
 
     @Test
@@ -170,6 +206,7 @@ public class VideoServiceTest {
 
         AnalysisSession session = new AnalysisSession();
         session.setId(sessionId);
+        session.setOwnerId(OWNER);
 
         Video video = new Video();
         video.setSession(session);
@@ -182,7 +219,7 @@ public class VideoServiceTest {
                 .thenReturn(video);
 
         // WHEN
-        Video result = videoService.getVideoBySessionId(sessionId);
+        Video result = videoService.getVideoBySessionId(sessionId, OWNER);
 
         // THEN
         assertNotNull(result);
@@ -202,7 +239,7 @@ public class VideoServiceTest {
         // WHEN + THEN
         assertThrows(
                 AnalysisSessionNotFoundException.class,
-                () -> videoService.getVideoBySessionId(sessionId));
+                () -> videoService.getVideoBySessionId(sessionId, OWNER));
 
         verify(videoRepository, never()).findBySession_Id(any());
     }
