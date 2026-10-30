@@ -9,6 +9,7 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
 import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.AnalysisClient;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.client.dto.PythonAnalysisResponse;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.config.AsyncConfig;
 
 // Ejecuta el análisis en segundo plano para no bloquear la petición HTTP
 @Service
@@ -23,7 +24,7 @@ public class AnalysisRunner {
         this.analysisSessionService = analysisSessionService;
     }
 
-    @Async
+    @Async(AsyncConfig.ANALYSIS_EXECUTOR)
     public void analyze(Long sessionId, String videoFilePath, ExerciseType exerciseType,
                         AnalysisParameters parameters) {
         try {

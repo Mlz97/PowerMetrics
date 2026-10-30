@@ -25,6 +25,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import jakarta.servlet.http.Cookie;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
@@ -33,6 +34,7 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.entity.JumpDetail;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.RepDetail;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.ExerciseType;
+import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisBusyException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.AnalysisSessionService;
@@ -40,6 +42,9 @@ import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageException;
 
 @WebMvcTest(AnalysisSessionController.class)
+// Límites altos: aquí se prueba el controlador, el rate limit tiene su propio test
+@TestPropertySource(properties = {"pwr.rate-limit.upload-per-hour=1000", "pwr.rate-limit.upload-per-day=1000",
+        "pwr.rate-limit.create-per-hour=1000", "pwr.rate-limit.general-per-minute=1000"})
 class AnalysisSessionControllerTest {
     @MockBean
     private AnalysisSessionService analysisSessionService;
@@ -170,6 +175,19 @@ class AnalysisSessionControllerTest {
                 .andExpect(status().isPayloadTooLarge())
                 .andExpect(jsonPath("$.error").value("FILE_TOO_LARGE"))
                 .andExpect(jsonPath("$.message").value("El vídeo supera el tamaño máximo permitido"));
+    }
+
+    @Test
+    void uploadVideoWhileAnalysisQueueIsFullReturnsServiceUnavailable() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        when(videoService.saveVideo(eq(1L), anyString(), any(), any()))
+                .thenThrow(new AnalysisBusyException());
+
+        mockMvc.perform(multipart("/session/1/video").file(file))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Retry-After", "60"))
+                .andExpect(jsonPath("$.error").value("ANALYSIS_BUSY"))
+                .andExpect(jsonPath("$.message").value("El servidor está analizando demasiados vídeos, inténtalo en unos minutos"));
     }
 
     @Test

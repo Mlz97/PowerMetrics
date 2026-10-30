@@ -2,12 +2,14 @@ package com.BEPerfectSquat.BEPerfectSquat.domain.service;
 
 import java.time.LocalDateTime;
 
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
 import com.BEPerfectSquat.BEPerfectSquat.domain.enums.AnalysisSessionState;
+import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisBusyException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.model.AnalysisParameters;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
@@ -59,7 +61,17 @@ public class VideoService {
         Video savedVideo = videoRepository.save(newVideo);
 
         // Análisis en segundo plano: la sesión pasa a FINISHED o ERROR al terminar
-        analysisRunner.analyze(sessionId, localFilePath, session.getExerciseType(), parameters);
+        try {
+            analysisRunner.analyze(sessionId, localFilePath, session.getExerciseType(), parameters);
+        } catch (TaskRejectedException e) {
+            // Cola llena: se deshace la subida para que el usuario pueda reintentar con la misma sesión
+            session.setState(AnalysisSessionState.WAITING);
+            session.setVideo(null);
+            videoRepository.delete(savedVideo);
+            analysisSessionRepository.save(session);
+            storageService.delete(localFilePath);
+            throw new AnalysisBusyException();
+        }
 
         return savedVideo;
     }

@@ -10,14 +10,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.Video;
+import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisBusyException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.AnalysisSessionRepository;
 import com.BEPerfectSquat.BEPerfectSquat.domain.repository.VideoRepository;
@@ -168,6 +171,29 @@ public class VideoServiceTest {
 
         verify(storageService, never()).store(any());
         assertEquals(AnalysisSessionState.WAITING, session.getState());
+    }
+
+    @Test
+    void fullAnalysisQueueRollsBackTheUpload() {
+        MockMultipartFile file = new MockMultipartFile("file", "video.mp4", "video/mp4", "content".getBytes());
+        AnalysisSession session = new AnalysisSession();
+        session.setId(4L);
+        session.setOwnerId(OWNER);
+        AnalysisParameters params = new AnalysisParameters(80.0, null, null);
+        when(analysisSessionRepository.findById(4L)).thenReturn(Optional.of(session));
+        when(storageService.store(file)).thenReturn("uploads/video.mp4");
+        when(videoRepository.save(any(Video.class))).thenAnswer(inv -> inv.getArgument(0));
+        doThrow(new TaskRejectedException("queue full"))
+                .when(analysisRunner).analyze(4L, "uploads/video.mp4", ExerciseType.SQUAT, params);
+
+        AnalysisBusyException ex = assertThrows(AnalysisBusyException.class,
+                () -> videoService.saveVideo(4L, OWNER, file, params));
+
+        assertEquals("El servidor está analizando demasiados vídeos, inténtalo en unos minutos", ex.getMessage());
+        assertEquals(AnalysisSessionState.WAITING, session.getState());
+        assertEquals(null, session.getVideo());
+        verify(videoRepository).delete(any(Video.class));
+        verify(storageService).delete("uploads/video.mp4");
     }
 
     @Test

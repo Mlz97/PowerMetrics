@@ -73,6 +73,14 @@ public class StorageService {
         }
     }
 
+    public void delete(String filePath) {
+        try {
+            Files.deleteIfExists(Paths.get(filePath));
+        } catch (IOException e) {
+            throw new StorageException("No se pudo borrar el archivo: " + filePath, e);
+        }
+    }
+
     public Resource loadAsResource(String filePath) {
         Resource resource;
         try {
