@@ -2,8 +2,6 @@ package com.BEPerfectSquat.BEPerfectSquat.domain.service;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,23 +41,26 @@ public class VideoRetentionJob {
     @Scheduled(cron = "${pwr.retention.cron:0 0 3 * * *}")
     public int purgeExpiredVideos() {
         LocalDateTime cutoff = LocalDateTime.now(clock).minusDays(retentionDays);
-        List<Video> purged = new ArrayList<>();
+        int purged = 0;
         for (Video video : videoRepository.findByUploadedAtBeforeAndFilePathIsNotNull(cutoff)) {
             try {
-                storageService.delete(video.getFilePath());
+                // El anotado primero: si falla, el original y sus rutas siguen intactos y se reintenta entero
                 if (video.getProcessedFilePath() != null) {
                     storageService.delete(video.getProcessedFilePath());
+                    video.setProcessedFilePath(null);
                 }
+                storageService.delete(video.getFilePath());
                 video.setFilePath(null);
-                video.setProcessedFilePath(null);
-                purged.add(video);
             } catch (StorageException e) {
                 // Se reintenta en la siguiente ejecución
                 log.warn("Could not purge video {}", video.getId(), e);
+                continue;
             }
+            // Cada vídeo se guarda al momento para que la base de datos nunca apunte a ficheros ya borrados
+            videoRepository.save(video);
+            purged++;
         }
-        videoRepository.saveAll(purged);
-        log.info("Purged {} videos uploaded before {}", purged.size(), cutoff);
-        return purged.size();
+        log.info("Purged {} videos uploaded before {}", purged, cutoff);
+        return purged;
     }
 }

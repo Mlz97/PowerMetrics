@@ -29,7 +29,9 @@ Seguimiento: `odd/tasks/pwrmetrics-web-launch.md`.
 - [ ] **Avisos legales**: la bienvenida explica la retención de 7 días y que no hay cuenta; falta una política de privacidad completa (los vídeos de personas son datos personales).
 - [ ] **Sesiones sin propietario**: las creadas antes del cambio tienen `owner_id` nulo y nadie las ve. En local da igual (H2 en memoria); si alguna base de datos ya tenía datos, asignarlas o borrarlas.
 - [ ] **IP real detrás de Caddy**: el límite por IP confía en que Caddy sobrescriba el `X-Forwarded-For` del cliente y en que Tomcat trate la red de Docker (172.16/12) como proxy interno. Son los valores por defecto de ambos, pero nada del repositorio los fija.
-- [ ] **Las subidas rechazadas (400, 413) cuentan para el límite por IP**: es deliberado (también gastan ancho de banda), pero un usuario que se equivoca de fichero tres veces se queda sin subidas durante una hora con el límite por defecto de 5/hora.
+- [ ] **IPv6 y límite por IP**: los buckets van por dirección completa; quien controle un /64 puede rotar direcciones. Agrupar IPv6 por prefijo si aparece abuso.
+- [ ] **Detalle de errores de Python**: el 500 del servicio de análisis incluye el final del stderr de ffmpeg (rutas internas). Spring no lo reenvía al usuario, pero conviene no devolverlo.
+- [ ] **Las subidas rechazadas (400, 413) cuentan para el límite por IP** (las 503 de cola llena ya no): es deliberado (también gastan ancho de banda), pero un usuario que se equivoca de fichero tres veces se queda sin subidas durante una hora con el límite por defecto de 5/hora.
 
 ## Prioridad media: funcionalidad y calidad de las métricas
 

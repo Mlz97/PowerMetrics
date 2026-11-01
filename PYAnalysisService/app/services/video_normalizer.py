@@ -18,7 +18,7 @@ MAX_VIDEO_SECONDS = float(os.getenv("PWR_MAX_VIDEO_SECONDS", "60"))
 # En Docker es obligatorio; en local sin ffmpeg se analiza el original con un aviso
 REQUIRE_FFMPEG = os.getenv("PWR_REQUIRE_FFMPEG", "false").lower() in ("1", "true", "yes")
 FFMPEG_TIMEOUT_SECONDS = 300
-MAX_HEIGHT = 1080
+MAX_SHORT_SIDE = 1080
 MAX_FPS = 240.0
 
 
@@ -71,14 +71,20 @@ def normalized_path(video_path: str) -> str:
     return f"{base}_normalized.mp4"
 
 
+def _seconds(value: float) -> str:
+    """Duracion en punto fijo: ffmpeg no acepta notacion exponencial (1e+06)."""
+    return f"{value:.3f}".rstrip("0").rstrip(".")
+
+
 def normalize_command(src: str, dst: str, fps: Optional[float], max_seconds: float) -> List[str]:
     # ffmpeg aplica la rotacion de los metadatos al decodificar, el resultado ya sale derecho
     command = ["ffmpeg", "-nostdin", "-y", "-v", "error", "-i", src, "-map", "0:v:0",
-               "-vf", f"scale=-2:'min({MAX_HEIGHT},ih)'"]
+               # Se limita el lado corto: un vertical de movil (1080x1920 ya rotado) conserva su resolucion
+               "-vf", f"scale='if(gt(iw,ih),-2,min({MAX_SHORT_SIDE},iw))':'if(gt(iw,ih),min({MAX_SHORT_SIDE},ih),-2)'"]
     if fps:
         command += ["-fps_mode", "cfr", "-r", f"{fps:.3f}"]
     # -t: un archivo sin duracion en la cabecera pasa ffprobe, pero no se procesa mas alla del limite
-    command += ["-t", f"{max_seconds:g}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
+    command += ["-t", _seconds(max_seconds), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
                 "-an", dst]
     return command
 
@@ -136,6 +142,10 @@ def make_browser_playable(video_path: str) -> None:
         if REQUIRE_FFMPEG:
             raise RuntimeError("ffmpeg/ffprobe no están instalados")
         logger.warning("ffmpeg not installed: %s stays as mp4v and browsers may not play it", video_path)
+        return
+    if not os.path.exists(video_path):
+        # OpenCV no llego a escribir el anotado: las metricas se devuelven igual
+        logger.warning("Tracked video %s was not written", video_path)
         return
     base, _ = os.path.splitext(video_path)
     raw = f"{base}.raw.mp4"

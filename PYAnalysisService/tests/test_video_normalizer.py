@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
@@ -93,6 +94,17 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(command[command.index("-t") + 1], "60")
         self.assertEqual(command[-1], "/videos/a_normalized.mp4")
 
+    def test_duration_cap_never_uses_exponent_notation(self):
+        command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=30.0, max_seconds=1e6)
+        self.assertEqual(command[command.index("-t") + 1], "1000000")
+        command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=30.0, max_seconds=90.5)
+        self.assertEqual(command[command.index("-t") + 1], "90.5")
+
+    def test_only_the_short_side_is_capped_so_portrait_videos_keep_their_height(self):
+        command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=30.0, max_seconds=60)
+        self.assertEqual(command[command.index("-vf") + 1],
+                         "scale='if(gt(iw,ih),-2,min(1080,iw))':'if(gt(iw,ih),min(1080,ih),-2)'")
+
     def test_normalize_command_without_known_fps_keeps_source_timing(self):
         command = normalize_command("/videos/a.mov", "/videos/a_normalized.mp4", fps=None, max_seconds=60)
         self.assertNotIn("-r", command)
@@ -109,6 +121,15 @@ class CommandTest(unittest.TestCase):
                 output = normalized_path(source)
                 self.assertNotEqual(output, source)
                 self.assertTrue(output.endswith("_normalized.mp4"))
+
+
+class MakeBrowserPlayableTest(unittest.TestCase):
+
+    def test_missing_annotated_video_is_not_an_error(self):
+        from services import video_normalizer
+
+        with mock.patch.object(video_normalizer, "ffmpeg_available", return_value=True):
+            video_normalizer.make_browser_playable(os.path.join(tempfile.gettempdir(), "pwr-missing_analyzed.mp4"))
 
 
 @unittest.skipUnless(HAS_FFMPEG, "ffmpeg/ffprobe not installed")

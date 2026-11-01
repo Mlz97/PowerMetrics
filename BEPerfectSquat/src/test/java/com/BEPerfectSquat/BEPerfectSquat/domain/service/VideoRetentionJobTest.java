@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,7 +58,37 @@ class VideoRetentionJobTest {
         verify(storageService).delete("/videos/a_analyzed.mp4");
         assertNull(old.getFilePath());
         assertNull(old.getProcessedFilePath());
-        verify(videoRepository).saveAll(List.of(old));
+        verify(videoRepository).save(old);
+    }
+
+    @Test
+    void failingProcessedFileKeepsTheOriginalAndItsPaths() {
+        Video old = video("/videos/e.mov", "/videos/e_analyzed.mp4");
+        when(videoRepository.findByUploadedAtBeforeAndFilePathIsNotNull(any())).thenReturn(List.of(old));
+        doThrow(new StorageException("No se pudo borrar el archivo: /videos/e_analyzed.mp4"))
+                .when(storageService).delete("/videos/e_analyzed.mp4");
+
+        assertEquals(0, job().purgeExpiredVideos());
+
+        verify(storageService, never()).delete("/videos/e.mov");
+        assertEquals("/videos/e.mov", old.getFilePath());
+        assertEquals("/videos/e_analyzed.mp4", old.getProcessedFilePath());
+    }
+
+    @Test
+    void eachPurgedVideoIsSavedRightAway() {
+        Video first = video("/videos/f.mp4", null);
+        Video second = video("/videos/g.mp4", null);
+        when(videoRepository.findByUploadedAtBeforeAndFilePathIsNotNull(any())).thenReturn(List.of(first, second));
+        when(videoRepository.save(second)).thenThrow(new RuntimeException("connection lost"));
+
+        try {
+            job().purgeExpiredVideos();
+        } catch (RuntimeException ignored) {
+            // The first video's cleared paths must already be stored
+        }
+
+        verify(videoRepository).save(first);
     }
 
     @Test

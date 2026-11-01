@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.BEPerfectSquat.BEPerfectSquat.api.controller.AnalysisSessionController;
 import com.BEPerfectSquat.BEPerfectSquat.domain.entity.AnalysisSession;
+import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisBusyException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.AnalysisSessionService;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
 
@@ -94,6 +95,23 @@ class RateLimitFilterTest {
         }
         mockMvc.perform(post("/session").with(fromIp("10.0.0.9")))
                 .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void uploadRejectedAsBusyDoesNotUseTheQuota() throws Exception {
+        when(analysisSessionService.getSessionById(eq(1L), anyString())).thenReturn(new AnalysisSession());
+        when(videoService.saveVideo(eq(1L), anyString(), any(), any()))
+                .thenThrow(new AnalysisBusyException())
+                .thenThrow(new AnalysisBusyException())
+                .thenReturn(null);
+
+        mockMvc.perform(multipart("/session/1/video").file(video()).with(fromIp("10.0.0.10")))
+                .andExpect(status().isServiceUnavailable());
+        mockMvc.perform(multipart("/session/1/video").file(video()).with(fromIp("10.0.0.10")))
+                .andExpect(status().isServiceUnavailable());
+        // Following Retry-After after a busy queue must not end in 429
+        mockMvc.perform(multipart("/session/1/video").file(video()).with(fromIp("10.0.0.10")))
+                .andExpect(status().isAccepted());
     }
 
     @Test

@@ -80,6 +80,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
         if (probe.isConsumed()) {
             chain.doFilter(request, response);
+            // Una subida rechazada por la cola llena (503) no gasta cupo: el cliente debe poder reintentar tras Retry-After
+            if (rule == Rule.UPLOAD && response.getStatus() == HttpStatus.SERVICE_UNAVAILABLE.value()) {
+                bucket.addTokens(1);
+            }
             return;
         }
 
