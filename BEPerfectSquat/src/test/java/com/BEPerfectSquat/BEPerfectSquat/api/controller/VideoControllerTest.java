@@ -3,7 +3,10 @@ package com.BEPerfectSquat.BEPerfectSquat.api.controller;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.springframework.core.io.ByteArrayResource;
 
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -43,9 +46,22 @@ public class VideoControllerTest {
 
     @Test
     void downloadWithoutProcessedVideoReturnsNotFound() throws Exception {
-        when(videoService.getVideoBySessionId(1L)).thenReturn(new Video());
+        when(videoService.getVideoBySessionId(eq(1L), anyString())).thenReturn(new Video());
 
         mockMvc.perform(get("/video/download/1"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void processedVideoIsServedInlineForTheBrowserPlayer() throws Exception {
+        Video video = new Video();
+        video.setProcessedFilePath("/videos/a_analyzed.mp4");
+        when(videoService.getVideoBySessionId(eq(1L), anyString())).thenReturn(video);
+        when(storageService.loadAsResource("/videos/a_analyzed.mp4")).thenReturn(new ByteArrayResource("mp4".getBytes()));
+
+        mockMvc.perform(get("/video/download/1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "video/mp4"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"processed_video.mp4\""));
     }
 }

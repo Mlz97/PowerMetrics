@@ -4,11 +4,12 @@ import logging
 from models import PythonAnalysisRequest, PythonAnalysisResponse, PythonRepDetail
 from services.squat_analyzer import SquatAnalyzer
 from services.jump_analyzer import JumpAnalyzer
+from services.video_normalizer import VideoRejected
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="PerfectSquat Python Analysis Service")
+app = FastAPI(title="PwrMetrics Analysis Service")
 
 @app.post("/analyze", response_model=PythonAnalysisResponse)
 def analyze_video(request: PythonAnalysisRequest):
@@ -33,6 +34,9 @@ def analyze_video(request: PythonAnalysisRequest):
             response = analyzer.analyze()
             logger.info(f"Returning analysis: {response.validReps}/{response.totalReps} valid reps for session {request.sessionId}")
         return response
+    except VideoRejected as e:
+        logger.warning(f"Video rejected for session {request.sessionId}: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.exception(f"Error analyzing video {request.videoFilePath} for session {request.sessionId}: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")

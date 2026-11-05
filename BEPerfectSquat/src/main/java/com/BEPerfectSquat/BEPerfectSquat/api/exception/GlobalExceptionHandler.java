@@ -6,13 +6,16 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import com.BEPerfectSquat.BEPerfectSquat.api.dto.response.ErrorResponse;
+import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisBusyException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.AnalysisSessionNotFoundException;
 import com.BEPerfectSquat.BEPerfectSquat.domain.exception.InvalidAnalysisParametersException;
 import com.BEPerfectSquat.BEPerfectSquat.infrastructure.service.StorageException;
@@ -64,6 +67,31 @@ public class GlobalExceptionHandler {
             LocalDateTime.now()
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex){
+        ErrorResponse response = new ErrorResponse(
+            HttpStatus.PAYLOAD_TOO_LARGE.value(),
+            "FILE_TOO_LARGE",
+            "El vídeo supera el tamaño máximo permitido",
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
+    }
+
+    @ExceptionHandler(AnalysisBusyException.class)
+    public ResponseEntity<ErrorResponse> handleAnalysisBusy(AnalysisBusyException ex){
+        logger.warn("Analysis queue full, upload rejected");
+        ErrorResponse response = new ErrorResponse(
+            HttpStatus.SERVICE_UNAVAILABLE.value(),
+            "ANALYSIS_BUSY",
+            ex.getMessage(),
+            LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "60")
+                .body(response);
     }
 
     @ExceptionHandler(StorageException.class)

@@ -2,6 +2,7 @@ package com.BEPerfectSquat.BEPerfectSquat.api.controller;
 
 import java.util.List;
 
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import com.BEPerfectSquat.BEPerfectSquat.domain.service.VideoService;
+import com.BEPerfectSquat.BEPerfectSquat.infrastructure.web.ClientIdFilter;
 
 
 
@@ -38,26 +40,28 @@ public class AnalysisSessionController {
 
     @PostMapping
     public ResponseEntity<AnalysisSessionResponse> createSession(
-            @RequestBody(required = false) CreateSessionRequest request){
+            @RequestBody(required = false) CreateSessionRequest request,
+            @RequestAttribute(ClientIdFilter.ATTRIBUTE) String clientId){
         // Sin body se crea una sesión de sentadilla, como antes de añadir el salto vertical
         CreateSessionRequest sessionRequest = request != null ? request : new CreateSessionRequest();
-        AnalysisSession session = analysisSessionService.createSession(sessionRequest.getExerciseType());
+        AnalysisSession session = analysisSessionService.createSession(sessionRequest.getExerciseType(), clientId);
         AnalysisSessionResponse response = AnalysisSessionResponse.from(session);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // Más reciente primero
     @GetMapping
-    public ResponseEntity<List<AnalysisSessionResponse>> listSessions() {
-        List<AnalysisSessionResponse> sessions = analysisSessionService.listSessions().stream()
+    public ResponseEntity<List<AnalysisSessionResponse>> listSessions(@RequestAttribute(ClientIdFilter.ATTRIBUTE) String clientId) {
+        List<AnalysisSessionResponse> sessions = analysisSessionService.listSessions(clientId).stream()
                 .map(AnalysisSessionResponse::from)
                 .toList();
         return ResponseEntity.ok(sessions);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<AnalysisSessionResponse> getAnalysisSession(@PathVariable Long id) {
-        AnalysisSession session  = analysisSessionService.getSessionById(id);
+    public ResponseEntity<AnalysisSessionResponse> getAnalysisSession(@PathVariable Long id,
+            @RequestAttribute(ClientIdFilter.ATTRIBUTE) String clientId) {
+        AnalysisSession session  = analysisSessionService.getSessionById(id, clientId);
         AnalysisSessionResponse response = AnalysisSessionResponse.from(session);
         return ResponseEntity.ok(response);
     }
@@ -68,10 +72,11 @@ public class AnalysisSessionController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "weightKg", required = false) Double weightKg,
             @RequestParam(value = "bodyWeightKg", required = false) Double bodyWeightKg,
-            @RequestParam(value = "heightCm", required = false) Double heightCm) {
+            @RequestParam(value = "heightCm", required = false) Double heightCm,
+            @RequestAttribute(ClientIdFilter.ATTRIBUTE) String clientId) {
 
-        videoService.saveVideo(id, file, new AnalysisParameters(weightKg, bodyWeightKg, heightCm));
-        AnalysisSession session = analysisSessionService.getSessionById(id);
+        videoService.saveVideo(id, clientId, file, new AnalysisParameters(weightKg, bodyWeightKg, heightCm));
+        AnalysisSession session = analysisSessionService.getSessionById(id, clientId);
         // 202: el análisis sigue en curso, consultar GET /session/{id} hasta FINISHED o ERROR
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(AnalysisSessionResponse.from(session));
     }

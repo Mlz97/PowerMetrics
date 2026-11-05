@@ -1,0 +1,80 @@
+# PwrMetrics on a single VPS. Run from the repository root:
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+name: pwrmetrics
+
+services:
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/Caddy.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PWR_DOMAIN: ${PWR_DOMAIN}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  api:
+    build: ../BEPerfectSquat
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      PWR_ANALYSIS_URL: http://analysis:8000
+      # Same path in api and analysis: the API sends the analysis service a file path, not the file
+      PWR_STORAGE_DIR: /data/videos
+      PWR_CORS_ALLOWED_ORIGINS: https://${PWR_DOMAIN}
+      PWR_RATE_UPLOAD_PER_HOUR: ${PWR_RATE_UPLOAD_PER_HOUR:-5}
+      PWR_RATE_UPLOAD_PER_DAY: ${PWR_RATE_UPLOAD_PER_DAY:-20}
+      PWR_ANALYSIS_CONCURRENCY: ${PWR_ANALYSIS_CONCURRENCY:-2}
+      PWR_ANALYSIS_QUEUE_CAPACITY: ${PWR_ANALYSIS_QUEUE_CAPACITY:-10}
+      PWR_RETENTION_DAYS: ${PWR_RETENTION_DAYS:-7}
+    volumes:
+      - videos:/data/videos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      analysis:
+        condition: service_started
+
+  # Not published: only the API can reach it inside the compose network
+  analysis:
+    build: ../PYAnalysisService
+    restart: unless-stopped
+    environment:
+      PWR_MAX_VIDEO_SECONDS: ${PWR_MAX_VIDEO_SECONDS:-60}
+    volumes:
+      - videos:/data/videos
+    deploy:
+      resources:
+        limits:
+          cpus: "${PWR_ANALYSIS_CPUS:-2}"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  videos:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -12,3 +12,6 @@ BEPerfectSquat/uploads/
 
 # IDE settings
 .idea/
+
+# Deployment secrets
+deploy/.env

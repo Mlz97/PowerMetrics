@@ -6,6 +6,7 @@ import math
 from models import PythonRepDetail, PythonAnalysisResponse
 from services.depth import DepthTracker
 from services.frame_errors import FrameErrorLog
+from services.video_normalizer import make_browser_playable, normalized_video
 from services.video_paths import analyzed_output_path
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,12 @@ class SquatAnalyzer:
         return angle
 
     def analyze(self) -> PythonAnalysisResponse:
-        cap = cv2.VideoCapture(self.video_path)
+        # Se analiza una copia normalizada (H.264, FPS constante, ya rotada); el anotado sigue junto al original
+        with normalized_video(self.video_path) as source:
+            return self._analyze(source)
+
+    def _analyze(self, source_path: str) -> PythonAnalysisResponse:
+        cap = cv2.VideoCapture(source_path)
         
         if not cap.isOpened():
             raise RuntimeError(f"OpenCV no pudo abrir el archivo de video: {self.video_path}")
@@ -223,6 +229,7 @@ class SquatAnalyzer:
         cap.release()
         frame_errors.log_summary(frame_index)
         out.release()
+        make_browser_playable(out_path)
         
         avg_velocity = (total_velocity / self.rep_count) if self.rep_count > 0 else 0.0
         
